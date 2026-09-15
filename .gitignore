@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vite/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Environment
+.env
+.env.*
+*.local
+
+# Python (tools/)
+__pycache__/
+*.pyc
+.venv/
+
+# Bossard vendor PDFs (copyrighted; see tools/README.md)
+cabinet-planner/tools/pdfs/*.pdf
+
+# Claude Code
+.claude/

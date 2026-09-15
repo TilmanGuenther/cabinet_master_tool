@@ -1,0 +1,41 @@
+/* === Print === */
+
+/* Fallback @page rule (no margin) for any direct Ctrl+P printing.
+   triggerPrint() overrides this with margin: 15mm for label exports. */
+@page { margin: 0; }
+
+@media print {
+  #app-header  { display: none; }
+  #app-footer  { display: none; }
+
+  body {
+    background: white;
+    color: #1a1a1a;
+    font-size: 12px;
+    padding: 0;
+  }
+
+  #app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .no-print { display: none !important; }
+
+  .drawer-page {
+    page-break-after: always;
+    width: 100%;
+  }
+
+
+  /* Poster print: collapse the scroll wrapper so the SVG fills the page */
+  .poster-preview-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  .poster-preview-inner {
+    padding: 0 !important;
+  }
+}

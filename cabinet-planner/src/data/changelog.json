@@ -1,0 +1,14 @@
+[
+  {
+    "version": "1.0.0",
+    "date": "2026-04-06",
+    "changes": [
+      "Reorganized navigation into labeled groups: Configure, Generate, Stock",
+      "New splash screen with quick-access cards",
+      "Import & Export moved to dedicated Data Manager",
+      "Fixed dark-mode text colour on buttons and label sheet headers",
+      "Added fixed footer with version, help, source, and theme toggle",
+      "Placeholder sections: Bin Models (Generate) and Order (Stock)"
+    ]
+  }
+]

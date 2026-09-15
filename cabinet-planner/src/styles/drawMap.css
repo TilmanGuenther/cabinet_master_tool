@@ -1,0 +1,591 @@
+/* === Drawer Map — 3-panel layout === */
+
+.dm-layout {
+  display: flex;
+  gap: var(--gap);
+  height: calc(100svh - 82px);
+  min-height: 420px;
+  align-items: stretch;
+}
+
+.dm-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Left */
+.dm-nav {
+  width: 172px;
+  flex-shrink: 0;
+  padding: 10px;
+}
+
+/* Middle */
+.dm-workspace {
+  flex: 1;
+  padding: 10px;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* Right */
+.dm-properties {
+  width: 240px;
+  flex-shrink: 0;
+  padding: 10px;
+}
+
+/* Panel heading */
+.dm-heading {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dm-heading-sub {
+  font-weight: 400;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+
+/* Empty / placeholder */
+.dm-empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+  padding: 36px 14px;
+  line-height: 1.6;
+}
+
+/* ── Cabinet nav ── */
+
+.dm-cab-block {
+  margin-bottom: 16px;
+}
+
+.dm-cab-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+/* Visual cabinet shell */
+.dm-cab-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 2.5px solid var(--cabinet-shell-border);
+  border-radius: 4px;
+  padding: 3px;
+  background: var(--cabinet-shell-bg);
+}
+
+/* Individual drawer chip inside cabinet visual */
+.dm-drawer-chip {
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 5px;
+  min-height: 26px;
+  border: 2px solid transparent;
+  transition: filter 0.1s;
+  box-sizing: border-box;
+}
+
+.dm-drawer-chip:hover { filter: brightness(0.88); }
+
+.dm-drawer-chip--active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.dm-chip-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--label-overlay);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dm-chip-stats {
+  font-size: 8px;
+  font-weight: 400;
+  color: var(--label-overlay-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Workspace toolbar ── */
+
+.dm-workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.dm-toolbar-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.dm-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dm-toolbar-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dm-toolbar-unit {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dm-height-spinner {
+  width: 48px;
+  padding: 2px 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.dm-zoom-btn {
+  font-size: 13px;
+  padding: 2px 7px;
+  line-height: 1;
+  min-width: 26px;
+  text-align: center;
+}
+
+.dm-zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dm-zoom-reset {
+  font-size: 12px;
+}
+
+.dm-zoom-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 36px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dm-create-toggle {
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
+.dm-create-toggle--on {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.dm-create-toggle--on:hover {
+  background: var(--accent-hover);
+}
+
+/* ── Grid workspace ── */
+
+.dm-grid-wrap {
+  overflow: auto;
+  max-width: 100%;
+}
+
+.dm-grid {
+  position: relative;
+  background-color: var(--grid-bg);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 42px 42px;
+  border: 1px solid var(--grid-border);
+  border-radius: 4px;
+  cursor: default;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Bin block */
+.dm-bin {
+  position: absolute;
+  border-radius: 5px;
+  border: 2px solid rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.1s, box-shadow 0.1s;
+  box-sizing: border-box;
+}
+
+.dm-bin:hover { border-color: rgba(0, 0, 0, 0.38); }
+
+.dm-bin--sel {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent);
+  cursor: grab;
+  z-index: 2;
+}
+
+.dm-bin--sel:active { cursor: grabbing; }
+
+.dm-bin-lbl {
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--label-overlay);
+  padding: 3px 4px;
+  pointer-events: none;
+  word-break: break-word;
+}
+
+/* Drag-to-create preview */
+.dm-preview {
+  position: absolute;
+  border-radius: 5px;
+  border: 2px dashed var(--accent);
+  background: rgba(37, 99, 235, 0.1);
+  pointer-events: none;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+/* Drag-to-move ghost */
+.dm-ghost {
+  position: absolute;
+  border-radius: 5px;
+  border: 2px dashed var(--accent);
+  background: rgba(37, 99, 235, 0.08);
+  pointer-events: none;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.dm-ghost--bad {
+  border-color: var(--danger);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+/* Box (rubber-band) selection rectangle */
+.dm-sel-box {
+  position: absolute;
+  border: 1.5px dashed var(--accent);
+  background: rgba(37, 99, 235, 0.07);
+  pointer-events: none;
+  z-index: 9;
+  box-sizing: border-box;
+}
+
+/* Multi-select info banner in the properties panel */
+.dm-multisel-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+/* ── Bin properties ── */
+
+.dm-props {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.dm-prop {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-prop-k {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dm-prop-v {
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.dm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dm-actions .btn {
+  width: 100%;
+  text-align: center;
+}
+
+.dm-btn-danger {
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.dm-btn-danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger-border-hover);
+}
+
+.dm-status {
+  min-height: 18px;
+  font-size: 11px;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.dm-status--err {
+  color: var(--danger);
+}
+
+/* ── Part Assigner (right panel of DrawerMap) ── */
+
+.dm-part-assigner {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.dm-assigner-heading {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 10px;
+}
+
+.dm-assigner-current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.dm-assigner-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success-text);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: 3px;
+  padding: 2px 7px;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.dm-btn-clear {
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--danger);
+  border-color: var(--danger-border);
+  flex-shrink: 0;
+}
+
+.dm-btn-clear:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger-border-hover);
+}
+
+.dm-assigner-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.dm-assigner-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dm-assigner-sel {
+  width: 100%;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.dm-assigner-auto {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.dm-assigner-preview {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: 3px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.dm-assigner-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-style: italic;
+}
+
+.dm-assigner-nomatch {
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+.dm-assign-btn {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.dm-assign-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Label Overrides section ── */
+
+.dm-overrides {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.dm-override-input {
+  width: 100%;
+  font-size: 12px;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.dm-override-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.dm-override-cb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.dm-override-cb-lbl {
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dm-override-fontsize-input {
+  width: 44px;
+  font-size: 12px;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+}
+
+/* ── Fastener SVG icon — shared base ── */
+
+.fastener-icon {
+  line-height: 0;
+}
+
+.fastener-icon .fastener-svg {
+  display: block;
+}
+
+/* Bin properties panel: icon showing current assignment */
+.dm-part-icon-wrap {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: var(--surface-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dm-part-icon-wrap .fastener-svg {
+  width: 100%;
+  height: auto;
+  max-height: 72px;
+}
+
+/* Assigner match preview icon */
+.dm-assigner-icon-wrap {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+}
+
+.dm-assigner-icon-wrap .fastener-svg {
+  width: 100%;
+  height: auto;
+  max-height: 56px;
+}

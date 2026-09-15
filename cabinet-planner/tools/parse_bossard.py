@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""
+Bossard PDF catalog parser.
+
+Reads all PDFs in ./pdfs/, extracts part metadata and article numbers,
+outputs ../src/data/bossard-db.json.
+
+Usage (from cabinet-planner/tools/):
+    python3 parse_bossard.py
+
+Requirements:
+    pip install pymupdf
+"""
+
+import json
+import re
+import sys
+from pathlib import Path
+
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    sys.exit("Missing dependency: pip install pymupdf")
+
+PDF_DIR = Path(__file__).parent / "pdfs"
+OUT_FILE = Path(__file__).parent.parent / "src" / "data" / "bossard-db.json"
+
+# --- Mappings ---
+
+HEAD_TYPE_MAP = {
+    "Zylindrisch niedrig": "low-socket",
+    "Zylindrisch":         "socket",
+    "Linsen":              "button",
+    "Senk":                "countersunk",
+    "Flach":               "flat",
+    "Rund":                "round",
+    "Sechskant":           "hex",
+    "ohne Kopf":           "insert",
+    "Ohne Kopf":           "insert",
+}
+
+DRIVE_MAP = {
+    "Innensechskant":  "Hex",
+    "Innensechsrund":  "Torx",
+    "Kreuzschlitz":    "Phillips",
+    "Schlitz":         "Slotted",
+    "Torx":            "Torx",
+}
+
+ARTICLE_RE   = re.compile(r'^\d+$')
+THREAD_RE    = re.compile(r'^M\d+([,\.]\d+)?$')
+DIAMETER_RE  = re.compile(r'^\d+([,\.]\d+)?$')
+
+
+def map_head_type(kopfform: str) -> str:
+    for key, val in HEAD_TYPE_MAP.items():
+        if key in kopfform:
+            return val
+    return kopfform.lower()
+
+
+def map_drive(antrieb: str) -> str:
+    for key, val in DRIVE_MAP.items():
+        if key in antrieb:
+            return val
+    return antrieb
+
+
+def normalize_thread(s: str) -> str:
+    """'M1,6' -> 'M1.6', 'M3' -> 'M3'"""
+    return s.replace(",", ".")
+
+
+def parse_number(s: str):
+    """German-locale number string to int or float."""
+    s = s.replace(",", ".")
+    try:
+        f = float(s)
+        return int(f) if f == int(f) else f
+    except ValueError:
+        return s
+
+
+def parse_pdf(path: Path) -> list[dict]:
+    doc = fitz.open(path)
+    lines = []
+    for page in doc:
+        lines.extend(page.get_text().splitlines())
+    doc.close()
+    lines = [l.strip() for l in lines if l.strip()]
+
+    # --- Extract header metadata ---
+    meta = {
+        "bossardNorm": "",
+        "title": lines[0] if lines else "",
+        "norms": [],
+        "headType": "",
+        "drive": "",
+        "material": "",
+        "materialGrade": "",
+    }
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if re.match(r'^BN \d+', line):
+            m = re.match(r'^(BN \d+)', line)
+            meta["bossardNorm"] = m.group(1)
+        elif line == "Norm" and i + 1 < len(lines):
+            raw = lines[i + 1]
+            meta["norms"] = [p.strip() for p in re.split(r',\s*', raw) if p.strip()]
+            i += 1
+        elif line == "Kopfform" and i + 1 < len(lines):
+            meta["headType"] = map_head_type(lines[i + 1])
+            i += 1
+        elif line == "Antrieb" and i + 1 < len(lines):
+            meta["drive"] = map_drive(lines[i + 1])
+            i += 1
+        elif line == "Werkstoff" and i + 1 < len(lines):
+            meta["material"] = lines[i + 1]
+            i += 1
+        elif line == "Werkstoffsorte" and i + 1 < len(lines):
+            meta["materialGrade"] = lines[i + 1]
+            i += 1
+        elif line == "Artikelnummer":
+            break
+        i += 1
+
+    # Infer headType from title for parts without Kopfform (nuts, washers, etc.)
+    if not meta["headType"]:
+        title_lower = meta["title"].lower()
+        if "mutter" in title_lower:
+            meta["headType"] = "nut"
+        elif "scheib" in title_lower or "unterleg" in title_lower:
+            meta["headType"] = "washer"
+        elif "abstandshalter" in title_lower or "distanz" in title_lower or "abstandshülse" in title_lower:
+            meta["headType"] = "standoff"
+        elif "gewindestift" in title_lower or "gewindestifte" in title_lower:
+            meta["headType"] = "set-screw"
+        elif "gewindeeinsatz" in title_lower or "gewindeeinsätze" in title_lower:
+            meta["headType"] = "insert"
+        elif "einpressmutter" in title_lower or "einpress" in title_lower:
+            meta["headType"] = "press-nut"
+        elif "stift" in title_lower:
+            meta["headType"] = "pin"
+
+    # --- Parse table: columns are each on their own line ---
+    # After "Artikelnummer", column header names follow until the first article number.
+    # Then rows: article_number + one value per column, repeated.
+    # The table header repeats on each new page — handle by re-detecting it.
+
+    # Find all "Artikelnummer" positions
+    artnr_positions = [j for j, l in enumerate(lines) if l == "Artikelnummer"]
+
+    # Collect all table segments (one per page)
+    parts_list = []
+
+    for start in artnr_positions:
+        # Read column headers: lines after "Artikelnummer" until the first article number
+        col_headers = []
+        j = start + 1
+        while j < len(lines) and not ARTICLE_RE.match(lines[j]):
+            col_headers.append(lines[j])
+            j += 1
+
+        # 'für Gewinde' (washers) takes priority over 'd1' as thread column.
+        # 'Gewindegrösse' (press-in nuts) is also a thread column.
+        # 'Durchmesser (d1)' is used for pins — detected as a diameter, not a thread.
+        is_diameter = False
+        if "für Gewinde" in col_headers:
+            thread_idx = col_headers.index("für Gewinde")
+        elif "d1" in col_headers:
+            thread_idx = col_headers.index("d1")
+        elif any("gewinde" in h.lower() for h in col_headers):
+            # Handles "Gewindegrösse", "Gewindegrösse (d1)", etc.
+            thread_idx = next(i for i, h in enumerate(col_headers) if "gewinde" in h.lower())
+        else:
+            diam_idx = next((i for i, h in enumerate(col_headers) if "d1" in h.lower()), -1)
+            if diam_idx >= 0:
+                thread_idx = diam_idx
+                is_diameter = True
+            else:
+                continue  # Can't find thread/diameter column, skip segment
+
+        # Find length column index ('L' or 'Länge (L)') — may not exist for nuts
+        if "L" in col_headers:
+            length_idx = col_headers.index("L")
+        else:
+            length_idx = next((i for i, h in enumerate(col_headers) if re.match(r'^L[äa]nge', h)), None)
+
+        num_cols = len(col_headers)
+
+        # Read rows: each row = 1 article line + num_cols value lines
+        while j + num_cols < len(lines):
+            article = lines[j]
+            if not ARTICLE_RE.match(article):
+                break  # End of this segment's data
+
+            # Check we have enough lines and next segment doesn't start here
+            values = lines[j + 1 : j + 1 + num_cols]
+            if len(values) < num_cols:
+                break
+
+            thread_raw = values[thread_idx]
+            if is_diameter:
+                if not DIAMETER_RE.match(thread_raw):
+                    break  # Not a data row
+                thread = "\u00D8" + normalize_thread(thread_raw)
+            else:
+                if not THREAD_RE.match(thread_raw):
+                    break  # Not a data row (e.g. ran into next page header)
+                thread = normalize_thread(thread_raw)
+            length = parse_number(values[length_idx]) if length_idx is not None else None
+
+            entry = {
+                "articleNumber": article,
+                "bossardNorm": meta["bossardNorm"],
+                "title": meta["title"],
+                "norms": meta["norms"],
+                "thread": thread,
+                "headType": meta["headType"],
+                "drive": meta["drive"],
+                "material": meta["material"],
+                "materialGrade": meta["materialGrade"],
+            }
+            if length is not None:
+                entry["length"] = length
+
+            parts_list.append(entry)
+            j += 1 + num_cols
+
+    return parts_list
+
+
+def main():
+    pdf_files = sorted(PDF_DIR.glob("*.pdf"))
+    if not pdf_files:
+        sys.exit(f"No PDF files found in {PDF_DIR}")
+
+    all_parts = []
+    for pdf in pdf_files:
+        print(f"Parsing {pdf.name}...", end=" ", flush=True)
+        parts = parse_pdf(pdf)
+        print(f"{len(parts)} parts")
+        all_parts.extend(parts)
+
+    print(f"\nTotal: {len(all_parts)} parts across {len(pdf_files)} files")
+    OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUT_FILE.write_text(json.dumps(all_parts, ensure_ascii=False, indent=2))
+    print(f"Written to {OUT_FILE}")
+
+
+if __name__ == "__main__":
+    main()
