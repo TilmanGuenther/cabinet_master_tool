@@ -8,6 +8,11 @@
  * Sized by inner diameter and cord cross-section, per ISO 3601.
  */
 
+import {
+  topAnnulus, sideORing, R_X, R_Y, R_W, R_H,
+} from '../../utils/fastenerShapes.js'
+import { f } from '../../utils/fastenerDims.js'
+
 export default {
   id: 'o-ring',
   label: 'O-Ring',
@@ -49,9 +54,42 @@ export default {
     const r  = cs / 2
     return 2 * Math.PI ** 2 * R * r ** 2 * 3.0
   },
+
+  svg: {
+    // A ring is recognised from above, so the top view leads.
+    layout: 'top-first',
+    top: (part, cx, cy, r) => topAnnulus(cx, cy, r, boreRatio(part)),
+    side: part => sideORing(part, R_X, R_Y, R_W, R_H),
+    // Nothing about an o-ring is long enough to shorten.
+    reducible: false,
+    mmPerUnit(part) {
+      const cs = part.crossSection || 1
+      const outerD = (part.innerD || 0) + 2 * cs
+      const scale = Math.min((R_H * 0.88) / outerD, (R_W * 0.80) / (cs * 2.2))
+      return 1 / scale
+    },
+    labelBody(part) {
+      const cs = part.crossSection || 1
+      const outerD = (part.innerD || 0) + 2 * cs
+      const W = Math.max(cs, 0.4)
+      const H = Math.max(outerD, 1)
+      const arm = cs
+      const content =
+        `<rect x="0" y="0" width="${f(W)}" height="${f(arm)}" rx="${f(W / 2)}" fill="#111"/>` +
+        `<rect x="0" y="${f(H - arm)}" width="${f(W)}" height="${f(arm)}" rx="${f(W / 2)}" fill="#111"/>`
+      return { W, H, content }
+    },
+  },
 }
 
 function sizeText(part) {
   if (part.innerD == null) return ''
   return `Ø${part.innerD}×${part.crossSection ?? '?'}`
+}
+
+/** Bore as a fraction of outer diameter, for the ring seen from above. */
+function boreRatio(part) {
+  const cs = part.crossSection || 1
+  const outerD = (part.innerD || 0) + 2 * cs
+  return outerD > 0 ? (part.innerD || 0) / outerD : 0.5
 }

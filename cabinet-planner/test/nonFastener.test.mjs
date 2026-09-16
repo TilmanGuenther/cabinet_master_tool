@@ -19,6 +19,10 @@ import { getDensity } from '../src/data/densities.js'
 import { buildCascade, nextAlongCascade } from '../src/views/drawerMap/dmCascade.js'
 import { dbEntryToPart } from '../src/views/drawerMap/dmHelpers.js'
 import { validateCatalog } from '../src/data/catalogs/schema.js'
+import { hasSilhouette } from '../src/data/partTypes/index.js'
+import {
+  getFastenerSVG, getFastenerSVGLabel, getFastenerSVGLabelTop, getFastenerSVGLabelReduced,
+} from '../src/utils/fastenerSvg.js'
 
 /** A small o-ring catalog in the normalized schema, as a contributor would write it. */
 const ORINGS = [
@@ -145,4 +149,52 @@ test('springs and spacers are sized by their own dimensions', () => {
   // and more pieces per millilitre.
   const thinWall = getDensity({ ...spacer, innerD: 5 })
   assert.ok(thinWall > getDensity(spacer), 'a wider bore packs more pieces per ml')
+})
+
+// ── Silhouettes ───────────────────────────────────────────────────────────────
+
+test('the new types draw, at their true physical size', async t => {
+  const cases = [
+    ['o-ring', { partType: 'o-ring', headType: 'o-ring', variant: 'oring-nbr70', innerD: 10, crossSection: 2 },
+      // cord width x outer diameter = 2 x (10 + 2*2)
+      { W: 2, H: 14 }],
+    ['spring', { partType: 'spring', headType: 'spring', variant: 'spring-compression', outerD: 8, freeLength: 25, wireD: 1 },
+      { W: 25, H: 8 }],
+    ['spacer', { partType: 'spacer', headType: 'spacer', variant: 'spacer-round', outerD: 6, innerD: 3.2, length: 10 },
+      { W: 10, H: 6 }],
+  ]
+
+  for (const [name, part, size] of cases) {
+    await t.test(name, () => {
+      assert.ok(hasSilhouette(part), 'must have a silhouette')
+
+      const icon = getFastenerSVG(part)
+      const label = getFastenerSVGLabel(part)
+      for (const [what, svg] of [['icon', icon], ['label', label],
+                                 ['top', getFastenerSVGLabelTop(part)],
+                                 ['reduced', getFastenerSVGLabelReduced(part)]]) {
+        assert.ok(svg.length > 60, `${what} rendered empty`)
+        assert.ok(!svg.includes('NaN'), `${what} contains NaN`)
+      }
+
+      // Labels print at 1:1, so the declared mm must be the real part size.
+      const [, w, h] = label.match(/width="([0-9.]+)mm" height="([0-9.]+)mm"/)
+      assert.equal(Number(w), size.W, `${name} label width`)
+      assert.equal(Number(h), size.H, `${name} label height`)
+    })
+  }
+})
+
+test('a hex spacer is drawn hexagonal, a round one round', () => {
+  const base = { partType: 'spacer', headType: 'spacer', outerD: 6, innerD: 3.2, length: 10 }
+  const hex   = getFastenerSVG({ ...base, variant: 'spacer-hex' })
+  const round = getFastenerSVG({ ...base, variant: 'spacer-round' })
+  assert.ok(hex.includes('<path'), 'the hex top view is a polygon path')
+  assert.ok(!round.includes('<path'), 'the round top view is circles only')
+})
+
+test('a type may still omit its drawing entirely', () => {
+  // Nothing requires an svg descriptor; labels fall back to text.
+  const bare = { partType: 'o-ring', headType: 'no-such-geometry' }
+  assert.equal(hasSilhouette({ ...bare, headType: null }), false)
 })

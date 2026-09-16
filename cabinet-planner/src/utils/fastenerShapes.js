@@ -482,3 +482,98 @@ export function sideSetScrew(part, rx, ry, rw, rh) {
     `<rect x="${f(cx - sockW / 2)}" y="${f(topY)}" width="${f(sockW)}" height="${f(sockH)}" fill="#aaa"/>`
   )
 }
+
+// ── Non-fastener shapes ───────────────────────────────────────────────────────
+// Added for the o-ring, spring and spacer part types. They compose these the
+// same way the fastener types compose the shapes above.
+
+/** Annulus: an o-ring or spacer bore seen from above. */
+export function topAnnulus(cx, cy, r, holeRatio) {
+  return (
+    `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="#111"/>` +
+    `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r * clampRatio(holeRatio))}" fill="white"/>`
+  )
+}
+
+/** Regular hexagon with a bore, for hex spacers seen from above. */
+export function topHexBore(cx, cy, r, holeRatio) {
+  return (
+    `<path d="${hexPath(cx, cy, r)}" fill="#111"/>` +
+    `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r * clampRatio(holeRatio))}" fill="white"/>`
+  )
+}
+
+/**
+ * O-ring in profile: the two cut cords, drawn as circles either side of the
+ * bore. This reads as a section rather than a silhouette, which is how o-rings
+ * are conventionally shown and makes the cord gauge legible.
+ */
+export function sideORing(part, rx, ry, rw, rh) {
+  const cs     = part.crossSection || 1
+  const outerD = (part.innerD || 0) + 2 * cs
+
+  const scale = Math.min((rh * 0.88) / outerD, (rw * 0.80) / (cs * 2.2))
+  const cordR = Math.max((cs * scale) / 2, 1.6)
+  const halfSpan = ((outerD - cs) * scale) / 2
+
+  const cx = rx + rw / 2
+  const cy = ry + rh / 2
+  return (
+    `<circle cx="${f(cx)}" cy="${f(cy - halfSpan)}" r="${f(cordR)}" fill="#111"/>` +
+    `<circle cx="${f(cx)}" cy="${f(cy + halfSpan)}" r="${f(cordR)}" fill="#111"/>`
+  )
+}
+
+/**
+ * Helical spring in profile, drawn as a run of coils.
+ *
+ * The coil count is derived from the wire gauge so a fine spring looks fine and
+ * a heavy one looks heavy, rather than every spring getting the same picture.
+ */
+export function sideSpring(part, rx, ry, rw, rh) {
+  const od   = part.outerD || 6
+  const len  = part.freeLength || 20
+  const wire = part.wireD || Math.max(od * 0.12, 0.5)
+
+  const scale = Math.min((rh * 0.88) / len, (rw * 0.70) / od)
+  const bodyW = od * scale
+  const bodyH = len * scale
+  const wireW = Math.max(wire * scale, 0.9)
+
+  const cx    = rx + rw / 2
+  const top   = ry + (rh - bodyH) / 2
+  const coils = Math.max(3, Math.min(14, Math.round(len / Math.max(wire * 2.2, 0.8))))
+  const pitch = bodyH / coils
+
+  let out = ''
+  for (let i = 0; i < coils; i++) {
+    const y = top + pitch * (i + 0.5)
+    out += `<ellipse cx="${f(cx)}" cy="${f(y)}" rx="${f(bodyW / 2)}" ry="${f(pitch * 0.42)}" ` +
+           `fill="none" stroke="#111" stroke-width="${f(wireW)}"/>`
+  }
+  return out
+}
+
+/** Unthreaded spacer in profile: a tube with its bore showing through. */
+export function sideSpacer(part, rx, ry, rw, rh) {
+  const od  = part.outerD || 6
+  const id  = part.innerD ?? od * 0.5
+  const len = part.length || 10
+
+  const scale = Math.min((rh * 0.88) / len, (rw * 0.72) / od)
+  const bodyW = od * scale
+  const boreW = Math.min(id, od) * scale
+  const bodyH = len * scale
+
+  const cx  = rx + rw / 2
+  const top = ry + (rh - bodyH) / 2
+  return (
+    `<rect x="${f(cx - bodyW / 2)}" y="${f(top)}" width="${f(bodyW)}" height="${f(bodyH)}" fill="#111"/>` +
+    `<rect x="${f(cx - boreW / 2)}" y="${f(top)}" width="${f(boreW)}" height="${f(bodyH)}" fill="#aaa"/>`
+  )
+}
+
+function clampRatio(ratio) {
+  if (!Number.isFinite(ratio)) return 0.4
+  return Math.max(0.05, Math.min(0.92, ratio))
+}

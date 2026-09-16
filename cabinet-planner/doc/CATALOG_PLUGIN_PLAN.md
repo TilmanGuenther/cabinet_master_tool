@@ -523,7 +523,7 @@ whole catalog, an English-language catalog with explicit `shape` is now drawn co
 stud), and one that omits `shape` still gets the old wrong answer — which is why the
 validator warns about it rather than staying silent.
 
-### Phase 6 — Reference non-fastener part types
+### Phase 6 — Reference non-fastener part types — **DONE** (6.5 deferred)
 
 Proves the seam. Each ships as one module + validator coverage + a golden test.
 
@@ -538,6 +538,32 @@ Proves the seam. Each ships as one module + validator coverage + a golden test.
 The packing factors are estimates. Document them as such in each module, the way
 `densities.js` already documents its calibration, and note that they are the one number a
 contributor should expect to tune against a real bin.
+
+**Shipped as**: `partTypes/{oring,spring,spacer}.js` — the first types with no thread, no
+head geometry and no length. Each declares its own dimension fields, cascade, description,
+packed-volume model and silhouette, and nothing in the views, the query layer or the
+renderers knows they differ from a screw. `_fields.js` gained `innerD`, `outerD`,
+`crossSection`, `freeLength` and `wireD`; `fastenerShapes.js` gained `topAnnulus`,
+`topHexBore`, `sideORing`, `sideSpring` and `sideSpacer`.
+
+The validator's per-type table now declares `requiredFields` rather than assuming a thread
+and a length, so a part with no fastener geometry validates on its own terms while still
+being held to the dimensions it does need.
+
+No o-ring catalog ships — supplying data is a contributor's job — so the tests register
+one in memory and drive the real code against it, which is the path a contributed catalog
+takes. Sixteen tests cover validation, description, density magnitude, the cascade asking
+o-ring questions rather than fastener ones, duplication stepping along cross-section
+because that is the type's last numeric field, and every silhouette rendering at its true
+millimetre size with no NaN.
+
+Packing factors (o-ring 3.0, spring 2.2, spacer 1.4) are documented estimates. They are
+the one number a contributor should expect to calibrate against a real bin.
+
+**6.5 (renaming `fastenerSvg`/`fastenerDims`/`fastenerShapes` to `part*`) is deferred.**
+It is pure churn across a dozen files with no behavioural payoff, and the names are now
+only half-wrong: the modules genuinely do hold fastener geometry alongside the rest. Worth
+doing with Phase 8's documentation sweep rather than on its own.
 
 ### Phase 7 — Multi-supplier UX (only once >1 catalog exists)
 
