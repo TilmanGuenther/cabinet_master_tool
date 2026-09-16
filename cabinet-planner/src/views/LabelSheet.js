@@ -15,6 +15,7 @@
  */
 
 import JsBarcode from 'jsbarcode'
+import { barcodeValue } from '../utils/partIdentity.js'
 import { hasSilhouette, silhouetteLayout } from '../data/partTypes/index.js'
 import { triggerPrint } from '../utils/print.js'
 import { getFastenerSVGLabel, getFastenerSVGLabelTop, getFastenerSVGLabelReduced } from '../utils/fastenerSvg.js'
@@ -246,7 +247,7 @@ export function renderLabelSheet(container, state) {
 
         // Resolve effective values — overrides take precedence over part data
         const effectiveStandard    = 'standard' in ov ? ov.standard : (part.standard || '')
-        const effectiveBN          = 'bn' in ov ? ov.bn : (part.bossardPN || '')
+        const effectiveBN          = 'bn' in ov ? ov.bn : barcodeValue(part)
         const disableImage         = !!ov.disableImage
         const reduceImageLength    = !!ov.reduceImageLength
         const ignoreIcon           = !!ov.ignoreIcon

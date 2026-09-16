@@ -470,7 +470,7 @@ its own header set, since entries now carry `variant` and the norm-matching it e
 deliberately gone. `parse_bossard.py` writes the new schema at the new path, so
 regenerating the catalog reproduces what is committed.
 
-### Phase 4 — Supplier-neutral part records
+### Phase 4 — Supplier-neutral part records — **DONE**
 
 | # | Task | Files |
 |---|---|---|
@@ -478,6 +478,24 @@ regenerating the catalog reproduces what is committed.
 | 4.2 | Barcode + PN display read `sku` via `partIdentity()`, labelled from `meta.skuLabel`; honour `meta.barcode === null` | `LabelSheet.js`, `lsSidebar.js`, `dmPanels.js`, `BinLocationPoster.js` |
 | 4.3 | OrderList: headers from `meta.skuLabel`, add a `Supplier` column, **split CSV export per supplier** (order lists go to one vendor each) | `OrderList.js` |
 | 4.4 | Update `doc/CONFIG_SCHEMA.md` — document `supplier`/`sku`/`catalogRef`/`partType`, mark `bossardPN` deprecated-but-honoured | `doc/CONFIG_SCHEMA.md` |
+
+**Shipped as**: `src/utils/partIdentity.js` plus a part record that carries `supplier`,
+`sku`, `catalogRef` and `partType` (and `variant`/`shape`, which Phase 5 needs). Every
+read goes through `partIdentity()`, so a config written before suppliers were modelled —
+carrying only `bossardPN` — is read as a Bossard part with no migration. `bossardPN` and
+`bossardNorm` are still written for one release so older builds can load new configs.
+
+Barcodes and part numbers are now labelled from the catalog's `meta.skuLabel` rather than
+the literal string `'Bossard PN'`, and a catalog with `barcode: null` prints no barcode —
+an in-house stock list may have nothing worth scanning. OrderList gains a Supplier column
+and splits its CSV per supplier, because an order goes to one vendor at a time; with a
+single catalog registered both behave exactly as before, so nothing changes visually until
+a second supplier exists.
+
+This is the first phase that deliberately changes output. The golden test confirms it
+changed only what was intended: of the eight snapshotted outputs, **only `part` moved** —
+descriptions, densities and all four silhouettes are untouched. Nine new tests cover the
+identity contract, including the legacy read path and a catalog with no barcode format.
 
 ### Phase 5 — Remove prose sniffing from geometry
 

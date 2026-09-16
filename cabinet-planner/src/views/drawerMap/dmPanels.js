@@ -1,5 +1,6 @@
 import { updateState, getState } from '../../state.js'
 import { findBySku } from '../../data/catalogs/index.js'
+import { partIdentity, partSku, skuLabel } from '../../utils/partIdentity.js'
 import { makeFastenerSVGEl } from '../../utils/fastenerSvg.js'
 import { pushHistory, canUndo, canRedo, undo as undoHistory, redo as redoHistory } from '../../utils/binHistory.js'
 import {
@@ -668,7 +669,7 @@ function buildLabelOverrides(container, bin, drawer) {
 
   makeTextRow('Description', 'description', part.description || bin.id)
   makeTextRow('Standard', 'standard', part.standard || '')
-  makeTextRow('BN (barcode)', 'bn', part.bossardPN || '')
+  makeTextRow(`${skuLabel(part)} (barcode)`, 'bn', partSku(part))
 
   // Disable image checkbox
   const cbRow = mk('div', 'dm-override-cb-row')
@@ -796,8 +797,9 @@ function renderPartAssigner(container, bin, drawer) {
     setPartSel({ _binId: bin.id })
     // Pre-populate from the existing assignment, so re-opening a bin lands on
     // what it already holds rather than an empty cascade.
-    if (bin.part?.bossardPN) {
-      const ex = findBySku(bin.part.supplier, bin.part.bossardPN)
+    const id = partIdentity(bin.part)
+    if (id) {
+      const ex = findBySku(id.supplier, id.sku)
       if (ex) {
         const sel = getPartSel()
         sel.type     = typeForHeadType(ex.headType)
@@ -924,7 +926,7 @@ function renderMatch(container, bin, drawer, matches, s) {
 
   const assignBtn = mk('button', 'btn btn-primary dm-assign-btn')
   assignBtn.textContent = 'Assign Part'
-  if (bin.part?.bossardPN === match.sku) {
+  if (partSku(bin.part) === match.sku) {
     assignBtn.disabled = true
     assignBtn.textContent = 'Already Assigned'
   }

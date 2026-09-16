@@ -1,5 +1,6 @@
 import { updateState, getState } from '../../state.js'
 import { findBySku } from '../../data/catalogs/index.js'
+import { partIdentity } from '../../utils/partIdentity.js'
 import { nextAlongCascade } from './dmCascade.js'
 import { pushHistory, undo as undoHistory, redo as redoHistory } from '../../utils/binHistory.js'
 import {
@@ -359,8 +360,9 @@ export function duplicateBin(bin, drawer, _panel) {
 
   // Duplicating a part steps one along its size range: an M3x8 screw becomes an
   // M3x10. The part type decides which dimension that is.
-  if (newBin.part?.bossardPN) {
-    const currentEntry = findBySku(newBin.part.supplier, newBin.part.bossardPN)
+  const id = partIdentity(newBin.part)
+  if (id) {
+    const currentEntry = findBySku(id.supplier, id.sku)
     if (currentEntry) {
       const nextEntry = nextAlongCascade(currentEntry)
       if (nextEntry) newBin.part = dbEntryToPart(nextEntry)

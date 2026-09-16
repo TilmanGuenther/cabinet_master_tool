@@ -1,4 +1,4 @@
-import { allParts } from '../../data/catalogs/index.js'
+import { allParts, DEFAULT_CATALOG } from '../../data/catalogs/index.js'
 import { INSET } from './dmConstants.js'
 import { typeForHeadType, describePart, resolvePartType } from '../../data/partTypes/index.js'
 
@@ -44,12 +44,25 @@ export function buildPartDescription(entry) {
   return describePart(entry, variantForEntry(entry)?.label)
 }
 
+/**
+ * The record written into a user's config when a part is assigned.
+ *
+ * A self-contained snapshot of the catalog entry: the config stays readable and
+ * keeps working even if the catalog it came from is later changed or removed
+ * (ADR-002). `bossardPN` and `bossardNorm` are deprecated aliases kept for one
+ * release so configs stay loadable by older builds; everything reads the
+ * supplier-neutral fields via utils/partIdentity.js.
+ */
 export function dbEntryToPart(entry) {
-  return {
-    description:   buildPartDescription(entry),
+  const part = {
+    description:   describePart(entry, variantForEntry(entry)?.label),
     title:         entry.title         || '',
-    bossardPN:     entry.sku,
-    bossardNorm:   entry.catalogRef    || '',
+
+    supplier:      entry.supplier      || DEFAULT_CATALOG,
+    sku:           entry.sku,
+    catalogRef:    entry.catalogRef    || '',
+    partType:      entry.partType      || '',
+
     thread:        entry.thread        || '',
     headType:      entry.headType      || '',
     drive:         entry.drive         || '',
@@ -57,7 +70,14 @@ export function dbEntryToPart(entry) {
     material:      entry.material      || '',
     materialGrade: entry.materialGrade || '',
     standard:      entry.norms?.[0]    || entry.catalogRef || '',
+
+    // Deprecated aliases. Written for one release, read indefinitely.
+    bossardPN:     entry.sku,
+    bossardNorm:   entry.catalogRef    || '',
   }
+  if (entry.variant) part.variant = entry.variant
+  if (entry.shape)   part.shape   = { ...entry.shape }
+  return part
 }
 
 export function buildSelectRow(label, options, currentVal, onChange) {
