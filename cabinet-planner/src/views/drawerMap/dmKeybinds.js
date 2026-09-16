@@ -1,5 +1,5 @@
 import { updateState, getState } from '../../state.js'
-import bossardDb from '../../data/bossard-db.json'
+import { findBySku } from '../../data/catalogs/index.js'
 import { nextAlongCascade } from './dmCascade.js'
 import { pushHistory, undo as undoHistory, redo as redoHistory } from '../../utils/binHistory.js'
 import {
@@ -362,9 +362,7 @@ export function duplicateBin(bin, drawer, panel) {
   if (newBin.part?.bossardPN) {
     const currentEntry = bossardDb.find(p => p.articleNumber === newBin.part.bossardPN)
     if (currentEntry) {
-      const nextEntry = nextAlongCascade(currentEntry, {
-        bossardNorms: currentEntry.bossardNorm ? [currentEntry.bossardNorm] : undefined,
-      })
+      const nextEntry = nextAlongCascade(currentEntry)
       if (nextEntry) newBin.part = dbEntryToPart(nextEntry)
     }
   }

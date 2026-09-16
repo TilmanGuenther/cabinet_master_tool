@@ -1,17 +1,14 @@
 /**
  * Part assigner cascade tests.
  *
- * Two checks, walking every reachable combination of answers for every part
- * type against the real catalog:
+ * Walks every reachable combination of answers for every part type against the
+ * real catalog and snapshots the result. Update with
+ * `npm run test:golden:update` and read the diff.
  *
- *  1. Equivalence with cascade-reference.mjs, the frozen pre-Phase-2 logic.
- *     This proved the move from a hardcoded Variant -> Thread -> Head -> Drive ->
- *     Length sequence to the data-driven engine changed nothing.
- *     RETIRE THIS CHECK AT PHASE 3.4, when catalog entries carry `variant`
- *     directly and the old norm-matching behaviour is deliberately replaced.
- *
- *  2. A snapshot of the engine's own output, which keeps protecting the cascade
- *     after the reference retires. Update with `npm run test:golden:update`.
+ * Until Phase 3.4 this also checked equivalence against cascade-reference.mjs,
+ * a frozen copy of the pre-Phase-2 cascade. That reference was retired with 3.4
+ * as planned: entries now carry `variant` directly, so the norm-matching it
+ * encoded is deliberately gone. The snapshot below took over its job.
  */
 
 import { test } from 'node:test'
@@ -21,13 +18,13 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { PART_TYPES } from '../src/data/partTypes/index.js'
-import db from '../src/data/bossard-db.json'
+import { allParts } from '../src/data/catalogs/index.js'
 import { buildCascade, selectionAfter, coerceFieldValue, nextAlongCascade } from '../src/views/drawerMap/dmCascade.js'
-import { referenceCascade } from './cascade-reference.mjs'
-import { variantToFilter, walkCascade, digest, summarize } from './cascade-walk.mjs'
+import { walkCascade, summarize } from './cascade-walk.mjs'
 
 const SNAPSHOT = join(dirname(fileURLToPath(import.meta.url)), 'cascade.snapshot.json')
 
+const db = allParts()
 const states = walkCascade()
 
 test('walk reaches every part type', () => {
@@ -35,24 +32,12 @@ test('walk reaches every part type', () => {
   assert.deepEqual([...seen].sort(), Object.keys(PART_TYPES).sort())
 })
 
-test('data-driven cascade matches pre-Phase-2 behaviour', () => {
-  const mismatches = []
-  for (const { typeId, selection } of states) {
-    const actual = buildCascade({ typeId, selection, toFilter: variantToFilter })
-    const expected = referenceCascade(typeId, selection)
-    if (digest(actual) !== digest(expected)) {
-      mismatches.push(`${typeId} ${JSON.stringify(selection)}`)
-    }
-  }
-  assert.deepEqual(mismatches, [], `${mismatches.length} of ${states.length} cascade states diverged`)
-})
-
 test('cascade snapshot', () => {
   const expected = JSON.parse(readFileSync(SNAPSHOT, 'utf8'))
   const actual = states.map(({ typeId, selection }) => ({
     typeId,
     selection,
-    result: summarize(buildCascade({ typeId, selection, toFilter: variantToFilter })),
+    result: summarize(buildCascade({ typeId, selection })),
   }))
   assert.equal(actual.length, expected.length, 'number of reachable cascade states changed')
   for (const [i, exp] of expected.entries()) {
@@ -98,12 +83,10 @@ test('numeric fields are coerced, string fields are not', () => {
 // ── Stepping along a cascade (bin duplication) ────────────────────────────────
 
 test('duplicating steps one along the size range', () => {
-  const pin = (e) => ({ bossardNorms: e.bossardNorm ? [e.bossardNorm] : undefined })
-
   // A socket screw should advance to the next length in its family.
   const m3x8 = db.find(e => e.headType === 'socket' && e.thread === 'M3' && e.length === 8)
   assert.ok(m3x8, 'fixture: an M3x8 socket screw exists')
-  const next = nextAlongCascade(m3x8, pin(m3x8))
+  const next = nextAlongCascade(m3x8)
   assert.ok(next, 'there is a next length')
   assert.equal(next.thread, 'M3')
   assert.equal(next.headType, 'socket')
@@ -111,25 +94,25 @@ test('duplicating steps one along the size range', () => {
 
   // A nut has no numeric dimension in its cascade, so there is nothing to step.
   const nut = db.find(e => e.headType === 'nut')
-  assert.equal(nextAlongCascade(nut, pin(nut)), null)
+  assert.equal(nextAlongCascade(nut), null)
 
   // The longest part in a family is the end of the range.
   const family = db.filter(e => e.headType === m3x8.headType && e.thread === m3x8.thread &&
-                                 e.bossardNorm === m3x8.bossardNorm && e.length != null)
+                                 e.catalogRef === m3x8.catalogRef && e.length != null)
   const longest = family.reduce((a, b) => (b.length > a.length ? b : a))
-  assert.equal(nextAlongCascade(longest, pin(longest)), null)
+  assert.equal(nextAlongCascade(longest), null)
 })
 
 test('stepping stays inside the part family', () => {
   // Every entry that steps must keep its thread and head geometry.
   let stepped = 0
   for (const e of db) {
-    const next = nextAlongCascade(e, { bossardNorms: e.bossardNorm ? [e.bossardNorm] : undefined })
+    const next = nextAlongCascade(e)
     if (!next) continue
     stepped++
-    assert.equal(next.thread, e.thread, `${e.articleNumber} changed thread`)
-    assert.equal(next.headType, e.headType, `${e.articleNumber} changed head type`)
-    assert.ok(next.length > e.length, `${e.articleNumber} did not step up`)
+    assert.equal(next.thread, e.thread, `${e.sku} changed thread`)
+    assert.equal(next.headType, e.headType, `${e.sku} changed head type`)
+    assert.ok(next.length > e.length, `${e.sku} did not step up`)
   }
   assert.ok(stepped > 500, `expected most of the catalog to step, got ${stepped}`)
 })

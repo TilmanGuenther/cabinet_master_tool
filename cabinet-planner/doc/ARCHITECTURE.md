@@ -22,15 +22,19 @@ JSON download / CSV download / Print / SVG
 main.js
 ├── state.js ← data/sampleConfig.js
 ├── views/Setup.js ← state.js
-├── views/DrawerMap.js ← state.js, data/bossard-db.json, utils/fastenerSvg.js
+├── views/DrawerMap.js ← state.js, data/catalogs/, data/partTypes/, utils/fastenerSvg.js
 ├── views/LabelSheet.js ← state.js, utils/fastenerSvg.js, utils/print.js, qrcode, jsbarcode
 ├── views/OrderList.js ← state.js, utils/volume.js, data/densities.js
 ├── views/BinLocationPoster.js ← state.js, utils/print.js
 ├── views/Help.js  (standalone, no state dependency)
 │
 ├── data/bossard.js      (legacy standalone reference, not imported by views)
-├── data/bossard-db.json (parsed catalog used by DrawerMap part assigner)
-├── data/densities.js    (imported by OrderList)
+├── data/catalogs/       (supplier catalogs: who sells a part)
+│   ├── index.js         registry + allParts() + findBySku()
+│   ├── schema.js        vocabularies + validateCatalog()
+│   └── bossard/         meta.js + parts.json
+├── data/partTypes/      (what a part is: dimensions, description, density, drawing)
+├── data/densities.js    (empirical table; geometry lives in partTypes)
 └── data/sampleConfig.js (imported by state.js)
 ```
 

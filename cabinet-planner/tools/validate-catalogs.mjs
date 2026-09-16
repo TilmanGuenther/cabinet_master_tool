@@ -7,12 +7,9 @@
  *   npm run validate               # errors fail the run, warnings are reported
  *   npm run validate -- --strict   # warnings fail the run too
  *
- * Catalog discovery:
- *   1. src/data/catalogs/<id>/parts.json   - the target layout
- *   2. src/data/bossard-db.json            - legacy fallback, read through
- *                                            tools/lib/normalizeLegacy.mjs
- *
- * Step 2 disappears once Phase 3.1 of doc/CATALOG_PLUGIN_PLAN.md lands.
+ * Catalogs are discovered by convention: every
+ * src/data/catalogs/<id>/parts.json is checked, so a contributor's catalog is
+ * validated as soon as the directory exists, registry entry or not.
  */
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
@@ -20,11 +17,9 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { validateCatalog } from '../src/data/catalogs/schema.js'
-import { normalizeLegacyCatalog } from './lib/normalizeLegacy.mjs'
 
 const ROOT        = dirname(dirname(fileURLToPath(import.meta.url)))
 const CATALOG_DIR = join(ROOT, 'src', 'data', 'catalogs')
-const LEGACY_DB   = join(ROOT, 'src', 'data', 'bossard-db.json')
 
 const STRICT = process.argv.includes('--strict')
 
@@ -67,11 +62,6 @@ function discoverCatalogs() {
     }
   }
 
-  if (found.length === 0 && existsSync(LEGACY_DB)) {
-    const legacy = normalizeLegacyCatalog(readJSON(LEGACY_DB))
-    found.push({ ...legacy, source: 'src/data/bossard-db.json (legacy, via normalizeLegacy.mjs)' })
-  }
-
   return found
 }
 
@@ -107,7 +97,7 @@ const catalogs = discoverCatalogs()
 
 if (catalogs.length === 0) {
   console.error(red('No catalogs found.'))
-  console.error(dim(`Looked in ${CATALOG_DIR} and ${LEGACY_DB}`))
+  console.error(dim(`Looked for <id>/parts.json under ${CATALOG_DIR}`))
   process.exit(1)
 }
 

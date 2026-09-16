@@ -1,5 +1,5 @@
 import { updateState, getState } from '../../state.js'
-import bossardDb from '../../data/bossard-db.json'
+import { findBySku } from '../../data/catalogs/index.js'
 import { makeFastenerSVGEl } from '../../utils/fastenerSvg.js'
 import { pushHistory, canUndo, canRedo, undo as undoHistory, redo as redoHistory } from '../../utils/binHistory.js'
 import {
@@ -15,7 +15,7 @@ import {
   buildPartDescription, dbEntryToPart, buildSelectRow,
 } from './dmHelpers.js'
 import { buildCascade, selectionAfter } from './dmCascade.js'
-import { CELL, INSET, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, TYPE_DEFS, VARIANT_DEFS } from './dmConstants.js'
+import { CELL, INSET, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, TYPE_DEFS } from './dmConstants.js'
 import { duplicateBin } from './dmKeybinds.js'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -797,7 +797,7 @@ function renderPartAssigner(container, bin, drawer) {
     // Pre-populate from the existing assignment, so re-opening a bin lands on
     // what it already holds rather than an empty cascade.
     if (bin.part?.bossardPN) {
-      const ex = bossardDb.find(p => p.articleNumber === bin.part.bossardPN)
+      const ex = findBySku(bin.part.supplier, bin.part.bossardPN)
       if (ex) {
         const sel = getPartSel()
         sel.type     = typeForHeadType(ex.headType)
@@ -832,11 +832,7 @@ function renderPartAssigner(container, bin, drawer) {
   if (!s.type) return
 
   // ── Steps 2..n: whatever this part type asks for ───────────────────────────
-  const { steps, matches, complete } = buildCascade({
-    typeId: s.type,
-    selection: s,
-    toFilter: variantToFilter,
-  })
+  const { steps, matches, complete } = buildCascade({ typeId: s.type, selection: s })
 
   for (const step of steps) {
     if (step.kind === 'info') {
@@ -863,16 +859,6 @@ function buildInfoRow(label, text) {
   val.textContent = text
   row.append(lbl, val)
   return row
-}
-
-/** Translate a chosen variant into catalog filter keys. See dmCascade. */
-function variantToFilter(key, value) {
-  if (key !== 'variant') return { [key]: value }
-  for (const variants of Object.values(VARIANT_DEFS)) {
-    const match = variants.find(v => v.value === value)
-    if (match) return { bossardNorms: match.norms }
-  }
-  return {}
 }
 
 /** Current assignment badge plus its clear button. */
@@ -914,14 +900,14 @@ function renderMatch(container, bin, drawer, matches, s) {
 
     container.appendChild(buildSelectRow(
       'Part',
-      matches.map(m => ({ value: m.articleNumber, label: `${buildPartDescription(m)} \u2014 ${m.articleNumber}` })),
+      matches.map(m => ({ value: m.sku, label: `${buildPartDescription(m)} \u2014 ${m.sku}` })),
       currentPN,
       val => {
         setPartSel({ ...getPartSel(), matchPN: val })
         renderPartAssigner(container, bin, drawer)
       },
     ))
-    match = matches.find(m => m.articleNumber === currentPN) || matches[0]
+    match = matches.find(m => m.sku === currentPN) || matches[0]
     if (!s.matchPN) return
   }
 
@@ -938,7 +924,7 @@ function renderMatch(container, bin, drawer, matches, s) {
 
   const assignBtn = mk('button', 'btn btn-primary dm-assign-btn')
   assignBtn.textContent = 'Assign Part'
-  if (bin.part?.bossardPN === match.articleNumber) {
+  if (bin.part?.bossardPN === match.sku) {
     assignBtn.disabled = true
     assignBtn.textContent = 'Already Assigned'
   }

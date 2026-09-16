@@ -6,24 +6,7 @@
 import { createHash } from 'node:crypto'
 
 import { PART_TYPES } from '../src/data/partTypes/index.js'
-import { VARIANT_DEFS } from '../src/views/drawerMap/dmConstants.js'
 import { buildCascade } from '../src/views/drawerMap/dmCascade.js'
-
-/**
- * Translate a chosen `variant` into catalog filter keys.
- *
- * Catalog entries do not carry `variant` yet -- membership is inferred from the
- * Bossard norm. Phase 3.4 replaces this with a plain `{ variant }` match and
- * this function goes away.
- */
-export function variantToFilter(key, value) {
-  if (key !== 'variant') return { [key]: value }
-  for (const variants of Object.values(VARIANT_DEFS)) {
-    const match = variants.find(v => v.value === value)
-    if (match) return { bossardNorms: match.norms }
-  }
-  return {}
-}
 
 /**
  * Reduce a cascade result to something comparable.
@@ -49,7 +32,9 @@ export function digest(result) {
             .sort((a, b) => a[0].localeCompare(b[0])),
         )
       : null,
-    matches: result.matches.map(m => m.articleNumber).sort(),
+    // Read either key name so the digest stays comparable across the Phase 3
+    // rename of articleNumber -> sku, which must not change any behaviour.
+    matches: result.matches.map(m => m.sku ?? m.articleNumber).sort(),
     complete: result.complete,
   })
 }
@@ -67,7 +52,7 @@ export function walkCascade() {
     if (depth > 6) return
     states.push({ typeId, selection: { ...selection } })
 
-    const result = buildCascade({ typeId, selection, toFilter: variantToFilter })
+    const result = buildCascade({ typeId, selection })
     const open = result.steps.find(s => s.kind === 'select' && s.value == null)
     if (!open) return
 

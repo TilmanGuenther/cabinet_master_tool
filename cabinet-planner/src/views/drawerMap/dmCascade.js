@@ -24,12 +24,9 @@ import { dbFilter, uniq } from './dmHelpers.js'
  * @param {object}   args
  * @param {string}   args.typeId      part type id
  * @param {object}   args.selection   answers so far, keyed by field
- * @param {Function} [args.toFilter]  (field, value) -> filter fragment. Lets a
- *                   caller translate a field the catalog does not carry yet;
- *                   `variant` needs this until entries store it directly.
  * @returns {{steps: object[], resolved: object, matches: object[], complete: boolean}}
  */
-export function buildCascade({ typeId, selection = {}, toFilter = defaultToFilter }) {
+export function buildCascade({ typeId, selection = {} }) {
   const type = getPartType(typeId)
   if (!type) return { steps: [], resolved: {}, matches: [], complete: false }
 
@@ -41,11 +38,11 @@ export function buildCascade({ typeId, selection = {}, toFilter = defaultToFilte
   // before the first question.
   if (type.headTypes.length === 1) resolved.headType = type.headTypes[0]
 
-  const filterNow = () => ({ ...base, ...mergeFilters(resolved, toFilter) })
+  const filterNow = () => ({ ...base, ...resolved })
 
   for (const key of type.cascade ?? []) {
     const field = getField(key)
-    const options = optionsFor(key, field, type, filterNow(), toFilter)
+    const options = optionsFor(key, field, type, filterNow())
 
     if (options.length === 0) continue
 
@@ -68,28 +65,16 @@ export function buildCascade({ typeId, selection = {}, toFilter = defaultToFilte
   return { steps, resolved, matches: dbFilter(filterNow()), complete: true }
 }
 
-/** Turn resolved answers into catalog filter keys. */
-function mergeFilters(resolved, toFilter) {
-  return Object.entries(resolved).reduce(
-    (acc, [key, value]) => ({ ...acc, ...toFilter(key, value) }),
-    {},
-  )
-}
-
-function defaultToFilter(key, value) {
-  return { [key]: value }
-}
-
 /**
  * Options for one step, either declared by the part type (variants) or derived
  * from whatever the catalog still offers.
  */
-function optionsFor(key, field, type, filter, toFilter) {
+function optionsFor(key, field, type, filter) {
   if (field.fromType) {
     // Declared options, kept in the type's order, minus any the catalog cannot
     // currently satisfy.
     return (type[`${key}s`] ?? [])
-      .filter(opt => dbFilter({ ...filter, ...toFilter(key, opt.value) }).length > 0)
+      .filter(opt => dbFilter({ ...filter, [key]: opt.value }).length > 0)
       .map(opt => ({ value: opt.value, label: opt.label }))
   }
 
@@ -150,11 +135,11 @@ export function nextAlongCascade(entry, extraFilter = {}) {
   const key = [...cascade].reverse().find(k => getField(k).numeric)
   if (!key || entry[key] == null) return null
 
-  // Hold the other dimensions this type distinguishes. `variant` is skipped: it
-  // is not a catalog field yet, and callers pin the family via extraFilter.
+  // Hold every other dimension this type distinguishes, so stepping stays
+  // inside one product family.
   const held = { headTypes: [entry.headType], ...extraFilter }
   for (const field of cascade) {
-    if (field === key || field === 'variant') continue
+    if (field === key) continue
     if (entry[field] != null && entry[field] !== '') held[field] = entry[field]
   }
 

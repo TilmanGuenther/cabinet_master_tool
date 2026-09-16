@@ -117,17 +117,14 @@ This constrains the `thread` field specifically. A part type is free to define
 inch-valued dimensions of its own, since those go through the type's own field
 definitions rather than the thread vocabulary.
 
-### Renderable thread sizes
+### Thread sizes and density
 
-The silhouette renderer has real diameters for `M2`, `M2.5`, `M3`, `M4`, `M5`, `M6`,
-`M8` and `M10` only (`THREAD_D` in `src/utils/fastenerDims.js`). Anything else is drawn
-at a 3 mm fallback, and the validator warns. This is a known limitation of the current
-renderer, not something wrong with your data — see the note in
-`doc/CATALOG_PLUGIN_PLAN.md`.
+Any metric size draws correctly — the renderer parses the number from the thread string.
 
-Likewise, the empirical density table (`src/data/densities.js`) has rows for those same
-sizes. Nuts and washers outside that range fall back to a geometric estimate, which the
-validator also warns about.
+The empirical density table in `src/data/densities.js` only has rows for M2, M2.5, M3,
+M4, M5, M6, M8 and M10. Nuts, washers and press-in nuts outside that range fall back to
+a geometric estimate, and the validator warns so you know the order quantities for those
+entries are less precise. Everything else is computed geometrically regardless.
 
 ---
 
@@ -148,15 +145,19 @@ entries reads as one line rather than 200.
 
 ## Adding a catalog
 
-Until Phase 3 of `doc/CATALOG_PLUGIN_PLAN.md` lands, the registry does not exist yet and
-the validator reads the legacy `src/data/bossard-db.json` through a compatibility
-adapter. The target workflow is:
-
 1. Create `src/data/catalogs/<your-id>/parts.json` with entries in the format above.
-2. Add `meta.js` alongside it (brand, SKU label, barcode format, source and licence).
-3. Register it in `src/data/catalogs/index.js`.
-4. Run `npm run validate` and fix what it reports.
-5. Open a pull request.
+2. Add `meta.js` alongside it. Copy `bossard/meta.js` as a template: brand, the label
+   for your SKUs, the label for `catalogRef`, barcode format (or `null` for none), and
+   where the data came from.
+3. Register both in `src/data/catalogs/index.js` — one import pair and one line.
+4. Run `npm run validate` and fix what it reports. The validator finds your catalog by
+   directory, so it checks your data even before you register it.
+5. Run `npm run test:golden` to confirm you have not moved anything that already existed.
+6. Open a pull request. CI runs all of the above plus the build and a bundle-size check.
+
+Your parts then appear in the assigner, get silhouettes and density-based order
+quantities from their part type, and are labelled and barcoded using your `meta.js` —
+without touching a view file.
 
 **Licensing**: commit only factual dimensional data — thread sizes, lengths, article
 numbers. Do not commit supplier PDFs or catalog scans. Record where the data came from

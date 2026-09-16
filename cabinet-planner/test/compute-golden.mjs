@@ -28,7 +28,7 @@ export function computeGolden() {
     const part = dbEntryToPart(entry)
 
     return {
-      sku: entry.articleNumber,
+      sku: entry.sku,
       why: _why,
 
       // Text shown in the part assigner and stored as part.description

@@ -42,7 +42,8 @@
 **Decision**: Auto-save the full state to `localStorage['cabinet_planner_state']` on every `updateState` call. Also provide named snapshots (`cabinet_planner_saves`) for deliberate checkpoints. The JSON export/import flow remains the primary backup mechanism.
 **Consequences**: Work survives browser crashes and refreshes without any user action. Named saves give users lightweight versioning without a server.
 
-## ADR-008: Parsed Bossard catalog (bossard-db.json)
+## ADR-008: Parsed Bossard catalog
+**Superseded by ADR-010.**
 **Status**: Decided
 **Context**: `bossard.js` was a hand-maintained reference file. DrawerMap needed a structured, queryable catalog to power the cascading part assigner.
 **Decision**: Add a Python tool (`tools/parse_bossard.py`) to extract data from Bossard PDF spec sheets and emit `data/bossard-db.json`. The JSON is committed alongside the source PDFs.
@@ -58,6 +59,33 @@
 **Context**: The tool was originally hard-coded for LISTA cabinets. Different brands have different drawer front-panel heights and different height margins (the gap between front-panel height and usable interior depth).
 **Decision**: All per-brand physical constants live in `src/data/cabinetTypes.js` as a plain JS object keyed by a stable id string. The cabinet type id is saved in the config JSON as `cabinet.cabinetType`. Adding a new brand is a single-file, self-contained change with no schema migration required.
 **Consequences**: Legacy configs without `cabinetType` fall back to `lista_75` transparently. The height selector and drawer creation logic are now driven by the type spec rather than global constants. Contributors can add a brand by editing one file.
+
+## ADR-010: Catalogs as a registry of supplier directories
+**Status**: Decided
+**Context**: The Bossard catalog was imported directly by three view files under a
+supplier-specific schema (`articleNumber`, `bossardNorm`). A second supplier had nowhere
+to go, and bare article numbers were being used as global identity, which two suppliers
+can collide on.
+**Decision**: One directory per catalog under `src/data/catalogs/<id>/` holding `meta.js`
+and `parts.json`, registered in `index.js`. Entries use a supplier-neutral schema
+(`sku`, `catalogRef`) and state `partType`, `variant` and `shape` explicitly instead of
+leaving them to be inferred at runtime. `findBySku(supplier, sku)` is the identity lookup.
+**Consequences**: Adding a supplier is a directory plus one registry line, with no view
+file touched. Imports stay static because the single-file build cannot fetch (ADR-003),
+so every catalog is inlined — hence the bundle budget checked in CI.
+
+## ADR-011: Part types as modules
+**Status**: Decided
+**Context**: What a part *is* was spread across four files that had to agree by hand:
+type definitions and head labels in the drawer map, a volume switch in `densities.js`,
+two description builders, and four separate per-head silhouette dispatches. Nothing
+non-fastener could be expressed, since `headType` was the de-facto primary key.
+**Decision**: One module per part type in `src/data/partTypes/`, owning its head
+geometries, labels, description, packed-volume model, silhouette and assigner cascade.
+`partType` is stored on the part record rather than inferred.
+**Consequences**: Adding a part type — including one with entirely different dimensions,
+like an o-ring — is one module plus a registry line. A type may omit `svg` and its labels
+fall back to text. Legacy configs without `partType` still resolve via `headType`.
 
 ---
 
@@ -81,7 +109,7 @@
 ### OQ-004: Bossard PN lookup / catalog browser
 **Status**: Resolved
 **Question**: Should there be a UI to browse the catalog and auto-populate bin parts?
-**Notes**: Implemented — DrawerMap's right panel includes a cascading part assigner (Type → Variant → Thread → Head → Drive → Length) backed by `data/bossard-db.json` (500+ parts parsed from PDFs). Selecting a part auto-fills description, standard, and Bossard PN.
+**Notes**: Implemented — DrawerMap's right panel includes a cascading part assigner (Type → Variant → Thread → Head → Drive → Length) backed by the catalog registry (900+ parts parsed from PDFs). Selecting a part auto-fills description, standard, and Bossard PN.
 
 ### OQ-005: Undo/redo for config edits
 **Status**: Deferred
@@ -104,6 +132,6 @@
 **Notes**: Currently supports A4, A5, Letter, Legal with the Avery L7160 layout. Users with different label stock have to hand-edit the JSON config.
 
 ### OQ-009: Catalog freshness / update workflow
-**Status**: Open
+**Status**: Resolved
 **Question**: Is the current PDF → Python → JSON workflow sustainable for catalog updates?
-**Notes**: `bossard-db.json` is static and committed. When Bossard updates part specs or adds new articles, someone must re-run `tools/parse_bossard.py`. Consider documenting the update procedure or automating it via CI.
+**Notes**: Each catalog owns its importer and documents its own provenance in `meta.js` (`source.retrieved`, `source.note`). `tools/parse_bossard.py` regenerates the Bossard catalog directly in the normalized schema; any other supplier brings its own converter, and the only contract is that the output passes `npm run validate`, which CI runs on every pull request. Freshness stays a manual, per-catalog decision — deliberately, since the source PDFs cannot be redistributed.

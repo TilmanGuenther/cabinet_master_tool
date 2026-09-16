@@ -41,7 +41,7 @@ export const HEAD_TYPES = [
 /** Drive types understood by the top-view renderer (fastenerShapes.topScrew). */
 export const DRIVES = ['Hex', 'Torx', 'Phillips', 'Slotted']
 
-/** Sub-kinds within a part type. Mirrors VARIANT_DEFS in dmConstants.js. */
+/** Sub-kinds within a part type. Mirrors the `variants` each type declares. */
 export const VARIANTS = [
   'nut-square', 'nut-nylon', 'nut-hex-thin',
   'washer-std', 'washer-large', 'washer-socket',

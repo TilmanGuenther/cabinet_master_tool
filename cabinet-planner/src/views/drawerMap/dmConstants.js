@@ -21,22 +21,3 @@ export const TYPE_DEFS = Object.fromEntries(
 export const HEAD_LABELS = Object.fromEntries(
   Object.values(PART_TYPES).flatMap(type => Object.entries(type.headLabels)),
 )
-
-// Variants for types that come in multiple sub-kinds (keyed by TYPE_DEFS key)
-// norms: bossardNorm values that belong to this variant
-export const VARIANT_DEFS = {
-  nut: [
-    { value: 'nut-square',    label: 'Square Nut',            norms: ['BN 145', 'BN 3525'] },
-    { value: 'nut-nylon',     label: 'Nylon Insert Lock Nut', norms: ['BN 161'] },
-    { value: 'nut-hex-thin',  label: 'Thin Hex Nut',          norms: ['BN 20242'] },
-  ],
-  washer: [
-    { value: 'washer-std',    label: 'Standard Washer',       norms: ['BN 715'] },
-    { value: 'washer-large',  label: 'Large Washer',          norms: ['BN 729'] },
-    { value: 'washer-socket', label: 'Socket Head Washer',    norms: ['BN 726'] },
-  ],
-  standoff: [
-    { value: 'standoff-mf',   label: 'Hex Standoff M/F',      norms: ['BN 3318'] },
-    { value: 'standoff-ff',   label: 'Hex Standoff F/F',      norms: ['BN 3319'] },
-  ],
-}

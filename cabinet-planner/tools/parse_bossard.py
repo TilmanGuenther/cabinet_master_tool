@@ -3,7 +3,8 @@
 Bossard PDF catalog parser.
 
 Reads all PDFs in ./pdfs/, extracts part metadata and article numbers,
-outputs ../src/data/bossard-db.json.
+outputs ../src/data/catalogs/bossard/parts.json in the normalized
+catalog schema (see doc/CATALOG_SCHEMA.md).
 
 Usage (from cabinet-planner/tools/):
     python3 parse_bossard.py
@@ -23,7 +24,8 @@ except ImportError:
     sys.exit("Missing dependency: pip install pymupdf")
 
 PDF_DIR = Path(__file__).parent / "pdfs"
-OUT_FILE = Path(__file__).parent.parent / "src" / "data" / "bossard-db.json"
+OUT_FILE = (Path(__file__).parent.parent / "src" / "data" / "catalogs"
+            / "bossard" / "parts.json")
 
 # --- Mappings ---
 
@@ -46,6 +48,38 @@ DRIVE_MAP = {
     "Schlitz":         "Slotted",
     "Torx":            "Torx",
 }
+
+# --- Normalized-schema mappings ---
+# The app needs partType, variant and shape stated explicitly; they used to be
+# inferred at runtime from head types, BN norms and German title text.
+
+PART_TYPE_BY_HEAD = {
+    "button": "screw", "socket": "screw", "low-socket": "screw",
+    "countersunk": "screw", "pan": "screw", "flat": "screw",
+    "nut": "nut", "washer": "washer", "standoff": "standoff",
+    "set-screw": "set-screw", "insert": "insert", "pin": "pin",
+    "press-nut": "press-nut",
+}
+
+VARIANT_BY_NORM = {
+    "BN 145": "nut-square",    "BN 3525": "nut-square",
+    "BN 161": "nut-nylon",     "BN 20242": "nut-hex-thin",
+    "BN 715": "washer-std",    "BN 729": "washer-large",
+    "BN 726": "washer-socket",
+    "BN 3318": "standoff-mf",  "BN 3319": "standoff-ff",
+}
+
+
+def derive_shape(norm: str, title: str, part_type: str) -> dict:
+    """Geometry discriminators the silhouette renderers need stated outright."""
+    shape = {}
+    if part_type == "nut":
+        shape["nutShape"] = "square" if norm == "BN 145" or "Vierkant" in title else "hex"
+        shape["locking"] = "nylon" if norm == "BN 161" or "nyloc" in title.lower() else "none"
+    if part_type == "standoff":
+        shape["standoffEnds"] = "mf" if "Aussengewinde" in title else "ff"
+    return shape
+
 
 ARTICLE_RE   = re.compile(r'^\d+$')
 THREAD_RE    = re.compile(r'^M\d+([,\.]\d+)?$')
@@ -224,19 +258,27 @@ def parse_pdf(path: Path) -> list[dict]:
                 thread = normalize_thread(thread_raw)
             length = parse_number(values[length_idx]) if length_idx is not None else None
 
+            part_type = PART_TYPE_BY_HEAD.get(meta["headType"], meta["headType"])
             entry = {
-                "articleNumber": article,
-                "bossardNorm": meta["bossardNorm"],
+                "sku": article,
+                "catalogRef": meta["bossardNorm"],
                 "title": meta["title"],
                 "norms": meta["norms"],
-                "thread": thread,
+                "partType": part_type,
                 "headType": meta["headType"],
+                "thread": thread,
                 "drive": meta["drive"],
                 "material": meta["material"],
                 "materialGrade": meta["materialGrade"],
             }
+            variant = VARIANT_BY_NORM.get(meta["bossardNorm"])
+            if variant:
+                entry["variant"] = variant
             if length is not None:
                 entry["length"] = length
+            shape = derive_shape(meta["bossardNorm"], meta["title"], part_type)
+            if shape:
+                entry["shape"] = shape
 
             parts_list.append(entry)
             j += 1 + num_cols
@@ -260,6 +302,7 @@ def main():
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(all_parts, ensure_ascii=False, indent=2))
     print(f"Written to {OUT_FILE}")
+    print("Run `npm run validate` from cabinet-planner/ to check the result.")
 
 
 if __name__ == "__main__":

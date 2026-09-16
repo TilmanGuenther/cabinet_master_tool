@@ -1,17 +1,21 @@
-import bossardDb from '../../data/bossard-db.json'
-import { VARIANT_DEFS, CELL, INSET } from './dmConstants.js'
-import { typeForHeadType, describePart } from '../../data/partTypes/index.js'
+import { allParts } from '../../data/catalogs/index.js'
+import { CELL, INSET } from './dmConstants.js'
+import { typeForHeadType, describePart, resolvePartType } from '../../data/partTypes/index.js'
 
 // ── Part assigner helpers ─────────────────────────────────────────────────────
 
 // Re-exported so existing importers keep working; the registry owns it now.
 export { typeForHeadType }
 
+/**
+ * The variant spec for an entry, or null when its type has no sub-kinds.
+ * Entries carry `variant` explicitly; it used to be inferred by matching the
+ * Bossard norm against a hardcoded list.
+ */
 export function variantForEntry(entry) {
-  const type = typeForHeadType(entry.headType)
-  const variants = VARIANT_DEFS[type]
-  if (!variants) return null
-  return variants.find(v => v.norms.includes(entry.bossardNorm)) || null
+  if (!entry?.variant) return null
+  const type = resolvePartType(entry)
+  return type?.variants?.find(v => v.value === entry.variant) ?? null
 }
 
 /**
@@ -23,10 +27,9 @@ export function variantForEntry(entry) {
  * values are ignored rather than matched, since catalog entries use '' for
  * "not applicable".
  */
-export function dbFilter({ headTypes, bossardNorms, ...fields } = {}) {
-  return bossardDb.filter(entry => {
-    if (headTypes    && !headTypes.includes(entry.headType))      return false
-    if (bossardNorms && !bossardNorms.includes(entry.bossardNorm)) return false
+export function dbFilter({ headTypes, ...fields } = {}) {
+  return allParts().filter(entry => {
+    if (headTypes && !headTypes.includes(entry.headType)) return false
     for (const [key, value] of Object.entries(fields)) {
       if (value == null || value === '') continue
       if (entry[key] !== value) return false
@@ -45,15 +48,15 @@ export function dbEntryToPart(entry) {
   return {
     description:   buildPartDescription(entry),
     title:         entry.title         || '',
-    bossardPN:     entry.articleNumber,
-    bossardNorm:   entry.bossardNorm   || '',
+    bossardPN:     entry.sku,
+    bossardNorm:   entry.catalogRef    || '',
     thread:        entry.thread        || '',
     headType:      entry.headType      || '',
     drive:         entry.drive         || '',
     length:        entry.length        ?? null,
     material:      entry.material      || '',
     materialGrade: entry.materialGrade || '',
-    standard:      entry.norms?.[0]    || entry.bossardNorm || '',
+    standard:      entry.norms?.[0]    || entry.catalogRef || '',
   }
 }
 

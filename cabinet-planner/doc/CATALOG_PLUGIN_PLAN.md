@@ -433,7 +433,7 @@ geometry with no options now falls through to "No matching parts found" instead 
 rendering nothing. The pre-populate path also now restores `drive` when reopening a bin,
 which the old code omitted.
 
-### Phase 3 — Catalog registry
+### Phase 3 — Catalog registry — **DONE**
 
 | # | Task | Files |
 |---|---|---|
@@ -441,6 +441,34 @@ which the old code omitted.
 | 3.2 | Add `bossard/meta.js` + `catalogs/index.js` | new |
 | 3.3 | Replace the three `import bossardDb …` with registry lookups; identity lookups become `findBySku(supplier, sku)` | `dmHelpers.js`, `dmPanels.js`, `dmKeybinds.js` |
 | 3.4 | `variantForEntry()` reads `entry.variant`; `VARIANT_DEFS` `norms` arrays deleted (variants now live on the part type) | `dmHelpers.js`, `dmConstants.js` |
+
+**Shipped as**: `src/data/catalogs/` — `index.js` (registry, `allParts()`, `findBySku()`),
+`bossard/meta.js` and `bossard/parts.json`. The three direct `bossard-db.json` imports are
+gone; `dbFilter` queries the registry, and identity lookups are `findBySku(supplier, sku)`
+rather than matching a bare article number that two suppliers could share.
+
+All 923 entries were migrated to the normalized schema: `articleNumber` → `sku`,
+`bossardNorm` → `catalogRef`, and `partType`, `variant` (271 entries) and `shape`
+(190 entries) are now stated outright instead of being inferred at runtime from head
+types, BN norm numbers and German title text. `variantForEntry()` reads `entry.variant`;
+`VARIANT_DEFS` and its norm lists are deleted.
+
+**Proven behaviour-neutral by both snapshots.** The frozen fixtures were migrated through
+the same adapter as the catalog, and `golden.snapshot.json` and `cascade.snapshot.json`
+are both byte-identical — descriptions, densities, silhouettes, and all 935 cascade
+states with their options and matching SKUs. The validator picked up the new layout by
+itself (it discovers `catalogs/<id>/parts.json`) and reports the same 0 errors and 182
+warnings against the migrated data.
+
+The part record written into user configs is deliberately unchanged here — it still
+carries `bossardPN` and `bossardNorm`. Making it supplier-neutral is Phase 4, which is
+what keeps this migration provably invisible.
+
+Retired with this phase: `bossard-db.json`, `tools/lib/normalizeLegacy.mjs`, the
+validator's legacy fallback, and `test/cascade-reference.mjs` — the last on the schedule
+its own header set, since entries now carry `variant` and the norm-matching it encoded is
+deliberately gone. `parse_bossard.py` writes the new schema at the new path, so
+regenerating the catalog reproduces what is committed.
 
 ### Phase 4 — Supplier-neutral part records
 
