@@ -29,6 +29,22 @@
  *       describe           (entry, variantLabel) -> full catalog description.
  *                          Defaults to describePart() below, which suits any
  *                          thread-and-length shaped part.
+ *       svg                How the part is drawn. Omit it entirely and the part
+ *                          simply has no silhouette: labels fall back to text,
+ *                          which is a perfectly good option for a new type.
+ *                            layout          'top-first' or 'side-first' -- which
+ *                                            view wins in a one-cell label
+ *                            top(part,cx,cy,r)   top/drive view
+ *                            side(part)          side profile for the two-panel icon
+ *                            labelBody(part)     compact label drawing, returning
+ *                                                {W, H, content} in mm
+ *                            mmPerUnit(part)     mm per SVG unit, so labels print 1:1
+ *                            reducible       may be drawn shortened with a break
+ *                                            mark when the part is long
+ *                            breakCentred    break in the middle (symmetric parts)
+ *                            breakFullHeight break spans the whole canvas height
+ *                          Compose the drawings from the primitives in
+ *                          utils/fastenerShapes.js, or add new ones there.
  *
  *  2. Register it in PART_TYPES below.
  *  3. Add its vocabulary to src/data/catalogs/schema.js so catalogs carrying it
@@ -46,6 +62,11 @@ import setScrew  from './setScrew.js'
 import insert    from './insert.js'
 import pin       from './pin.js'
 import pressNut  from './pressNut.js'
+
+import {
+  topScrew, sideScrew, L_CX, L_CY, L_R, R_X, R_Y, R_W, R_H,
+} from '../../utils/fastenerShapes.js'
+import { d, f, screwDims } from '../../utils/fastenerDims.js'
 
 export const PART_TYPES = {
   screw,
@@ -126,4 +147,106 @@ export function describePart(entry, variantLabel) {
 /** Compact one-line label text for a part. */
 export function shortLabel(part) {
   return resolvePartType(part).shortLabel(part)
+}
+
+// ── Silhouette dispatch ───────────────────────────────────────────────────────
+// Each part type composes shape primitives from utils/fastenerShapes.js into an
+// `svg` descriptor. A type with `svg: null` simply has no drawing, and callers
+// degrade to text.
+
+/**
+ * Silhouette used when no part type claims a head geometry -- a hand-edited
+ * config with an unrecognised `headType`, for instance. Draws a plain
+ * cylindrical-head screw so something sensible still appears on the label.
+ */
+const GENERIC_SVG = {
+  layout: 'side-first',
+  top:  (part, cx, cy, r) => topScrew(cx, cy, r, part.drive),
+  side: part => sideScrew(part, R_X, R_Y, R_W, R_H),
+  reducible: true,
+  breakCentred: false,
+  breakFullHeight: true,
+  mmPerUnit(part) {
+    const dims = screwDims('socket', d(part.thread))
+    const scale = Math.min(
+      (R_H * 0.88) / (dims.headH + (part.length || 10)),
+      (R_W * 0.70) / dims.headW,
+    )
+    return 1 / scale
+  },
+  labelBody(part) {
+    const nomD = d(part.thread)
+    const len  = part.length || 10
+    let W, H, content
+        const dims = screwDims('socket', nomD)
+        W = dims.headH + len
+        H = dims.headW
+        const cy = H / 2
+        const fallbackContent =
+          `<rect x="0" y="0" width="${f(dims.headH)}" height="${f(H)}" fill="#111"/>` +
+          `<rect x="${f(dims.headH)}" y="${f(cy - nomD / 2)}" width="${f(len)}" height="${f(nomD)}" fill="#111"/>`
+        content = `<g transform="scale(-1,1) translate(-${f(W)},0)">${fallbackContent}</g>`
+    return { W, H, content }
+  },
+}
+
+/**
+ * The svg descriptor to draw `part` with.
+ *
+ * Dispatches on which type actually claims the head geometry rather than on
+ * resolvePartType(), so an unrecognised head falls to GENERIC_SVG instead of
+ * being drawn as whatever the default type happens to be.
+ */
+function svgFor(part) {
+  const claimed = typeForHeadType(part?.headType)
+  return claimed ? PART_TYPES[claimed].svg : GENERIC_SVG
+}
+
+/** Does this part have a silhouette at all? */
+export function hasSilhouette(part) {
+  return Boolean(part?.headType && svgFor(part))
+}
+
+/** Which of the two label panels leads: 'top-first' or 'side-first'. */
+export function silhouetteLayout(part) {
+  return svgFor(part).layout ?? 'side-first'
+}
+
+/** Top/drive view, looking straight down at the part. */
+export function makeTopView(part, cx = L_CX, cy = L_CY, r = L_R) {
+  return svgFor(part).top(part, cx, cy, r)
+}
+
+/** Side profile, proportional to real geometry. */
+export function makeSideView(part) {
+  return svgFor(part).side(part)
+}
+
+/**
+ * Millimetres per SVG unit for the two-panel icon, so labels can be rendered at
+ * 1:1 physical scale.
+ */
+export function mmPerUnit(part) {
+  return svgFor(part).mmPerUnit(part)
+}
+
+/**
+ * How this type behaves when drawn at a shortened length with a break mark.
+ * `reducible: false` means the part has no length worth shortening.
+ */
+export function breakBehaviour(part) {
+  const svg = svgFor(part)
+  return {
+    reducible:  svg?.reducible ?? false,
+    centred:    svg?.breakCentred ?? false,
+    fullHeight: svg?.breakFullHeight ?? false,
+  }
+}
+
+/**
+ * Compact horizontal label silhouette.
+ * @returns {{W: number, H: number, content: string}} canvas size in mm and SVG body
+ */
+export function labelBody(part) {
+  return svgFor(part).labelBody(part)
 }

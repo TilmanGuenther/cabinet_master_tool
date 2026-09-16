@@ -1,7 +1,10 @@
 /**
  * fastenerShapes.js
- * SVG shape generator functions for fastener icons.
- * Exports makeTopView(part) and makeSideView(part).
+ * SVG shape primitives for part silhouettes.
+ *
+ * This is a toolkit, not a dispatcher: each function draws one shape. Which
+ * shape a given part uses is decided by its part type module in
+ * src/data/partTypes/, which composes these into its `svg` descriptor.
  */
 
 import { d, f, screwDims, washerDims, isSquareNut, isMFStandoff } from './fastenerDims.js'
@@ -10,14 +13,14 @@ import { d, f, screwDims, washerDims, isSquareNut, isMFStandoff } from './fasten
 
 const VH = 48
 // Left panel: 0–44  (top/drive view)
-const L_CX = 22
-const L_CY = 24
-const L_R  = 17.5
+export const L_CX = 22
+export const L_CY = 24
+export const L_R  = 17.5
 // Right panel: 50–96  (side profile)
-const R_X = 50
-const R_W = 46
-const R_Y = 1
-const R_H = VH - 2
+export const R_X = 50
+export const R_W = 46
+export const R_Y = 1
+export const R_H = VH - 2
 
 // ── Path generators ───────────────────────────────────────────────────────────
 
@@ -69,7 +72,7 @@ function hexPath(cx, cy, r, flatTop = false) {
 // ── Top/drive view generators ─────────────────────────────────────────────────
 
 /** Circular head with drive recess (dark gray cut-out, visible on white). */
-function topScrew(cx, cy, r, drive) {
+export function topScrew(cx, cy, r, drive) {
   const body = `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="#111"/>`
   const dr   = r * 0.60
   let recess = ''
@@ -94,7 +97,7 @@ function topScrew(cx, cy, r, drive) {
 }
 
 /** Hex outline with central through-hole. Used for nuts and standoffs. */
-function topHex(cx, cy, r, holeR) {
+export function topHex(cx, cy, r, holeR) {
   return (
     `<path d="${hexPath(cx, cy, r)}" fill="#111"/>` +
     `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(holeR)}" fill="#aaa"/>`
@@ -102,7 +105,7 @@ function topHex(cx, cy, r, holeR) {
 }
 
 /** Annulus (ring). Used for washers. Hole ratio from physical dims; white centre = through hole. */
-function topWasher(cx, cy, r, part) {
+export function topWasher(cx, cy, r, part) {
   const dims = washerDims(part)
   const holeRatio = dims.innerD / dims.outerD
   return (
@@ -112,12 +115,12 @@ function topWasher(cx, cy, r, part) {
 }
 
 /** Plain filled circle. Used for dowel/spring pins. */
-function topPin(cx, cy, r) {
+export function topPin(cx, cy, r) {
   return `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="#111"/>`
 }
 
 /** Threaded heat-set insert: knurled outer ring + central bore. */
-function topInsert(cx, cy, r) {
+export function topInsert(cx, cy, r) {
   const holeR  = r * 0.38
   const kInner = r * 0.62
   const kOuter = r * 0.93
@@ -138,7 +141,7 @@ function topInsert(cx, cy, r) {
 }
 
 /** Square nut: square outline with central through-hole. */
-function topSquareNut(cx, cy, r, holeR) {
+export function topSquareNut(cx, cy, r, holeR) {
   const s = r * 0.94
   return (
     `<rect x="${f(cx - s)}" y="${f(cy - s)}" width="${f(s * 2)}" height="${f(s * 2)}" fill="#111"/>` +
@@ -150,7 +153,7 @@ function topSquareNut(cx, cy, r, holeR) {
  * Top view of a press-in nut (KF2 style): outer knurled ring + inner step + bore.
  * Outer ring = flange (d3), inner step = body (d2), centre = threaded bore.
  */
-function topPressNut(cx, cy, r) {
+export function topPressNut(cx, cy, r) {
   const stepR  = r * 0.72   // proportional to d2/d3 ratio (~4.68/5.56 ≈ 0.84 → visually ~0.72)
   const holeR  = r * 0.38
   const kInner = stepR
@@ -211,7 +214,7 @@ function headEl(headType, cx, topY, headW, headH, shaftW) {
   }
 }
 
-function sideScrew(part, rx, ry, rw, rh) {
+export function sideScrew(part, rx, ry, rw, rh) {
   const nomD  = d(part.thread)
   const len   = part.length || 10
   const dims  = screwDims(part.headType, nomD)
@@ -237,7 +240,7 @@ function sideScrew(part, rx, ry, rw, rh) {
   return head + shaft
 }
 
-function sideNut(part, rx, ry, rw, rh) {
+export function sideNut(part, rx, ry, rw, rh) {
   const nomD  = d(part.thread)
   const square = isSquareNut(part)
 
@@ -303,7 +306,7 @@ function sideNut(part, rx, ry, rw, rh) {
   return out
 }
 
-function sideWasher(part, rx, ry, rw, rh) {
+export function sideWasher(part, rx, ry, rw, rh) {
   const { outerD, innerD, thick } = washerDims(part)
 
   const scale  = Math.min((rh * 0.55) / thick, (rw * 0.82) / outerD)
@@ -321,7 +324,7 @@ function sideWasher(part, rx, ry, rw, rh) {
   )
 }
 
-function sideStandoff(part, rx, ry, rw, rh) {
+export function sideStandoff(part, rx, ry, rw, rh) {
   const nomD     = d(part.thread)
   const len      = part.length || 12
   const mf       = isMFStandoff(part)
@@ -362,7 +365,7 @@ function sideStandoff(part, rx, ry, rw, rh) {
   return out
 }
 
-function sidePin(part, rx, ry, rw, rh) {
+export function sidePin(part, rx, ry, rw, rh) {
   const nomD  = d(part.thread)
   const len   = part.length || 10
   const scale = Math.min((rh * 0.88) / len, (rw * 0.55) / nomD)
@@ -377,7 +380,7 @@ function sidePin(part, rx, ry, rw, rh) {
 }
 
 /** Side profile of a heat-set threaded insert: knurled cylinder + bore. */
-function sideInsert(part, rx, ry, rw, rh) {
+export function sideInsert(part, rx, ry, rw, rh) {
   const nomD     = d(part.thread)
   const len      = part.length || nomD * 2.5
   const bodyW_mm = nomD * 1.8
@@ -417,7 +420,7 @@ function sideInsert(part, rx, ry, rw, rh) {
  * narrower knurled body below (presses into the panel) + central threaded bore.
  * Proportions approximate PEM KF2 geometry.
  */
-function sidePressNut(part, rx, ry, rw, rh) {
+export function sidePressNut(part, rx, ry, rw, rh) {
   const nomD       = d(part.thread)
   const flangeW_mm = nomD * 1.85   // d3 ≈ 1.85×nomD
   const bodyW_mm   = nomD * 1.40   // Bohr-Ø ≈ 1.40×nomD
@@ -461,7 +464,7 @@ function sidePressNut(part, rx, ry, rw, rh) {
 }
 
 /** Side profile of a set screw: headless cylinder with hex-socket recess at top. */
-function sideSetScrew(part, rx, ry, rw, rh) {
+export function sideSetScrew(part, rx, ry, rw, rh) {
   const nomD     = d(part.thread)
   const len      = part.length || 8
   const bodyW_mm = nomD
@@ -481,37 +484,4 @@ function sideSetScrew(part, rx, ry, rw, rh) {
     `<rect x="${f(cx - bodyW / 2)}" y="${f(topY)}" width="${f(bodyW)}" height="${f(bodyH)}" fill="#111"/>` +
     `<rect x="${f(cx - sockW / 2)}" y="${f(topY)}" width="${f(sockW)}" height="${f(sockH)}" fill="#aaa"/>`
   )
-}
-
-// ── Dispatch helpers ──────────────────────────────────────────────────────────
-
-const SCREW_TYPES = new Set(['socket', 'low-socket', 'button', 'countersunk', 'pan', 'flat'])
-
-export function makeTopView(part, cx = L_CX, cy = L_CY, r = L_R) {
-  const ht = part.headType
-  if (SCREW_TYPES.has(ht))    return topScrew(cx, cy, r, part.drive)
-  if (ht === 'set-screw')     return topScrew(cx, cy, r, part.drive || 'Hex')
-  if (ht === 'insert')        return topInsert(cx, cy, r)
-  if (ht === 'press-nut')     return topPressNut(cx, cy, r)
-  if (ht === 'nut')           return isSquareNut(part)
-                                ? topSquareNut(cx, cy, r, r * 0.40)
-                                : topHex(cx, cy, r, r * 0.40)
-  if (ht === 'washer')        return topWasher(cx, cy, r, part)
-  if (ht === 'standoff')      return topHex(cx, cy, r, r * 0.38)
-  if (ht === 'pin')           return topPin(cx, cy, r * 0.55)
-  // Fallback: treat as generic screw
-  return topScrew(cx, cy, r, part.drive)
-}
-
-export function makeSideView(part) {
-  const ht = part.headType
-  if (SCREW_TYPES.has(ht))    return sideScrew(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'set-screw')     return sideSetScrew(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'insert')        return sideInsert(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'press-nut')     return sidePressNut(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'nut')           return sideNut(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'washer')        return sideWasher(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'standoff')      return sideStandoff(part, R_X, R_Y, R_W, R_H)
-  if (ht === 'pin')           return sidePin(part, R_X, R_Y, R_W, R_H)
-  return sideScrew(part, R_X, R_Y, R_W, R_H)
 }

@@ -7,6 +7,10 @@
  */
 
 import { nominalDiameter, cylinderVol, genericVolMM3 } from './_shared.js'
+import {
+  topScrew, sideScrew, R_X, R_Y, R_W, R_H,
+} from '../../utils/fastenerShapes.js'
+import { d, f, screwDims } from '../../utils/fastenerDims.js'
 
 /** Compact head names for label text (the long names live in `headLabels`). */
 const SHORT_HEAD = {
@@ -82,5 +86,71 @@ export default {
       default:
         return genericVolMM3(diam, len)
     }
+  },
+
+  svg: {
+    // Screws read best head-first in profile, so the side view leads.
+    layout: 'side-first',
+    top:  (part, cx, cy, r) => topScrew(cx, cy, r, part.drive),
+    side: part => sideScrew(part, R_X, R_Y, R_W, R_H),
+    // Long shanks can be drawn shortened with a break mark; the break sits off
+    // centre so the head-side stub keeps more detail, and spans only the shaft
+    // band rather than the full canvas height.
+    reducible: true,
+    breakCentred: false,
+    breakFullHeight: false,
+    mmPerUnit(part) {
+      const dims = screwDims(part.headType || 'socket', d(part.thread))
+      const scale = Math.min(
+        (R_H * 0.88) / (dims.headH + (part.length || 10)),
+        (R_W * 0.70) / dims.headW,
+      )
+      return 1 / scale
+    },
+    /**
+     * Compact horizontal label silhouette, drawn at 1 SVG unit = 1 mm.
+     * Head on the right, shaft to the left (the group is mirrored).
+     */
+    labelBody(part) {
+      const nomD = d(part.thread)
+      const len  = part.length || 10
+      const ht   = part.headType
+      let W, H, content
+
+      const dims = screwDims(ht, nomD)
+      const hH   = dims.headH   // head length (horizontal mm)
+      const hW   = dims.headW   // head cross-section (vertical mm)
+      const sD   = nomD         // shaft diameter
+      W = hH + len
+      H = hW
+      const cy = H / 2
+
+      let head
+      if (ht === 'socket' || ht === 'low-socket') {
+        const rW = hH * 0.45, rH = hW * 0.50
+        head =
+          `<rect x="0" y="0" width="${f(hH)}" height="${f(hW)}" fill="#111"/>` +
+          `<rect x="0" y="${f(cy - rH / 2)}" width="${f(rW)}" height="${f(rH)}" fill="#aaa"/>`
+      } else if (ht === 'button') {
+        const cornerR = Math.min(hH * 0.12, hW * 0.12)
+        const p =
+          `M ${f(hH)},${f(cornerR)} ` +
+          `L ${f(hH)},${f(hW - cornerR)} ` +
+          `Q ${f(hH)},${f(hW)} ${f(hH - cornerR)},${f(hW)} ` +
+          `Q ${f(hH * 0.3)},${f(hW)} 0,${f(cy)} ` +
+          `Q ${f(hH * 0.3)},0 ${f(hH - cornerR)},0 ` +
+          `Q ${f(hH)},0 ${f(hH)},${f(cornerR)} Z`
+        head = `<path d="${p}" fill="#111"/>`
+      } else if (ht === 'countersunk') {
+        head = `<path d="M 0,0 L 0,${f(hW)} L ${f(hH)},${f(cy + sD / 2)} L ${f(hH)},${f(cy - sD / 2)} Z" fill="#111"/>`
+      } else {
+        head = `<rect x="0" y="0" width="${f(hH)}" height="${f(hW)}" fill="#111"/>`
+      }
+
+      const shaft = `<rect x="${f(hH)}" y="${f(cy - sD / 2)}" width="${f(len)}" height="${f(sD)}" fill="#111"/>`
+      // Mirror horizontally so shaft points left, head on right
+      content = `<g transform="scale(-1,1) translate(-${f(W)},0)">${head + shaft}</g>`
+      return { W, H, content }
+    },
   },
 }

@@ -15,6 +15,7 @@
  */
 
 import JsBarcode from 'jsbarcode'
+import { hasSilhouette, silhouetteLayout } from '../data/partTypes/index.js'
 import { triggerPrint } from '../utils/print.js'
 import { getFastenerSVGLabel, getFastenerSVGLabelTop, getFastenerSVGLabelReduced } from '../utils/fastenerSvg.js'
 import { getState } from '../state.js'
@@ -299,9 +300,9 @@ export function renderLabelSheet(container, state) {
         label.appendChild(left)
 
         // ── Right: icon(s) ──────────────────────────────────────────────────
-        if (part.headType && !disableImage) {
-          const ht = part.headType
-          const topIsFirst = (ht === 'nut' || ht === 'washer')
+        if (hasSilhouette(part) && !disableImage) {
+          // Which view leads in a one-cell label is a property of the part type.
+          const topIsFirst = silhouetteLayout(part) === 'top-first'
           const showSide = binW > 1 || !topIsFirst
           const showTop  = binW > 1 || topIsFirst
 
