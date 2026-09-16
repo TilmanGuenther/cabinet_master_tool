@@ -30,9 +30,29 @@ jobs:
         working-directory: cabinet-planner
         run: npm ci
 
+      # The same gates ci.yml runs on pull requests. CI only guards PRs, so
+      # without these a push straight to main would publish unverified. They are
+      # separate steps rather than one `npm test` so a failure names itself in
+      # the Actions UI.
+      - name: Lint
+        working-directory: cabinet-planner
+        run: npm run lint
+
+      - name: Validate catalogs
+        working-directory: cabinet-planner
+        run: npm run validate
+
+      - name: Golden output test
+        working-directory: cabinet-planner
+        run: npm run test:golden
+
       - name: Build
         working-directory: cabinet-planner
         run: npm run build
+
+      - name: Check bundle size
+        working-directory: cabinet-planner
+        run: npm run check:size
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

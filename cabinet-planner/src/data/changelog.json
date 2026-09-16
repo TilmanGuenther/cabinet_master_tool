@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.1.0",
+    "date": "2026-09-16",
+    "changes": [
+      "Parts are no longer limited to fasteners — o-rings, springs and spacers are supported alongside screws, nuts, washers and the rest",
+      "Catalogs from more than one supplier can now be used side by side: the part assigner asks which supplier first, and the Data Manager remembers a preferred one",
+      "Order List gained a Supplier column, and its CSV export now writes one file per supplier, since an order goes to one vendor at a time",
+      "Fixed: part drawings for M12 and larger, for sizes below M2, and for every pin diameter were all drawn at M3 size on labels and on the bin poster",
+      "Fixed: “Jump to drawer” from the Setup view did nothing",
+      "Saved configs now record which supplier a part came from. Files saved with earlier versions keep working unchanged"
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-04-06",
     "changes": [
