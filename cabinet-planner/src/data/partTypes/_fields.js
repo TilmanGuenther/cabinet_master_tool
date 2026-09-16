@@ -61,7 +61,52 @@ export const FIELDS = {
     format: mm => `${mm} mm`,
     numeric: true,
   },
+
+  // ── Non-fastener dimensions ──────────────────────────────────────────
+  // Nothing here is special: a part type names the fields it distinguishes
+  // parts by, and the cascade engine asks about them in order.
+
+  innerD: {
+    label: 'Inner Ø',
+    autoResolve: 'never',
+    sort: 'numeric',
+    format: mm => `${mm} mm`,
+    numeric: true,
+  },
+  outerD: {
+    label: 'Outer Ø',
+    autoResolve: 'never',
+    sort: 'numeric',
+    format: mm => `${mm} mm`,
+    numeric: true,
+  },
+  crossSection: {
+    label: 'Cross-section',
+    autoResolve: 'never',
+    sort: 'numeric',
+    format: mm => `${mm} mm`,
+    numeric: true,
+  },
+  freeLength: {
+    label: 'Free length',
+    autoResolve: 'never',
+    sort: 'numeric',
+    format: mm => `${mm} mm`,
+    numeric: true,
+  },
+  wireD: {
+    label: 'Wire Ø',
+    autoResolve: 'never',
+    sort: 'numeric',
+    format: mm => `${mm} mm`,
+    numeric: true,
+  },
 }
+
+/** Dimension fields whose values are millimetre numbers. */
+export const NUMERIC_FIELDS = Object.entries(FIELDS)
+  .filter(([, def]) => def.numeric)
+  .map(([key]) => key)
 
 /** @returns {object} the field descriptor, or a bare default for unknown keys. */
 export function getField(key) {

@@ -21,21 +21,29 @@
  * ---
  */
 
+import { NUMERIC_FIELDS } from '../partTypes/_fields.js'
+
 // ── Vocabularies ─────────────────────────────────────────────────────────────
 
 /** Part types: what a thing *is*. Primary key of the part model from Phase 1 on. */
 export const PART_TYPES = [
   'screw', 'nut', 'washer', 'standoff', 'set-screw', 'insert', 'pin', 'press-nut',
+  'o-ring', 'spring', 'spacer',
 ]
 
 /**
- * Head types. Every value here must have a silhouette renderer in
- * fastenerShapes.js and a volume case in densities.js.
- * 'pan' and 'flat' are rendered but absent from the current Bossard data.
+ * Geometries a part can have, stored in the `headType` field.
+ *
+ * The name is inherited from when every part was a fastener; it means "which
+ * shape within its type". A type with one geometry, such as an o-ring, simply
+ * uses its own id. Every value here must belong to some part type in
+ * src/data/partTypes/. 'pan' and 'flat' are rendered but unused by the current
+ * Bossard data.
  */
 export const HEAD_TYPES = [
   'button', 'socket', 'low-socket', 'countersunk', 'pan', 'flat',
   'nut', 'washer', 'standoff', 'set-screw', 'insert', 'pin', 'press-nut',
+  'o-ring', 'spring', 'spacer',
 ]
 
 /** Drive types understood by the top-view renderer (fastenerShapes.topScrew). */
@@ -46,6 +54,9 @@ export const VARIANTS = [
   'nut-square', 'nut-nylon', 'nut-hex-thin',
   'washer-std', 'washer-large', 'washer-socket',
   'standoff-mf', 'standoff-ff',
+  'oring-nbr70', 'oring-fkm', 'oring-epdm',
+  'spring-compression', 'spring-extension', 'spring-torsion',
+  'spacer-round', 'spacer-hex',
 ]
 
 /** Explicit geometry discriminators (replace prose sniffing in Phase 5). */
@@ -64,30 +75,49 @@ const METRIC_THREAD_RE = /^M\d+(\.\d+)?$/
 const DIAMETER_RE = /^Ø\d+(\.\d+)?$/
 
 // ── Per-part-type expectations (transitional — see header) ───────────────────
+//
+// `requiredFields` names the dimensions an entry of this type must carry. A
+// type with no thread simply does not list one, which is what lets a part with
+// no fastener geometry at all validate.
 
 export const PART_TYPE_SPECS = {
   screw: {
     headTypes: ['button', 'socket', 'low-socket', 'countersunk', 'pan', 'flat'],
-    threadForm: 'metric', requiresLength: true, requiresDrive: true,
+    threadForm: 'metric', requiredFields: ['thread', 'length'], requiresDrive: true,
   },
   nut: {
-    headTypes: ['nut'], threadForm: 'metric', requiresLength: false,
+    headTypes: ['nut'], threadForm: 'metric', requiredFields: ['thread'],
     variants: ['nut-square', 'nut-nylon', 'nut-hex-thin'],
     shapeFlags: ['nutShape', 'locking'],
   },
   washer: {
-    headTypes: ['washer'], threadForm: 'metric', requiresLength: false,
+    headTypes: ['washer'], threadForm: 'metric', requiredFields: ['thread'],
     variants: ['washer-std', 'washer-large', 'washer-socket'],
   },
   standoff: {
-    headTypes: ['standoff'], threadForm: 'metric', requiresLength: true,
+    headTypes: ['standoff'], threadForm: 'metric', requiredFields: ['thread', 'length'],
     variants: ['standoff-mf', 'standoff-ff'],
     shapeFlags: ['standoffEnds'],
   },
-  'set-screw': { headTypes: ['set-screw'], threadForm: 'metric',   requiresLength: true },
-  insert:      { headTypes: ['insert'],    threadForm: 'metric',   requiresLength: true },
-  pin:         { headTypes: ['pin'],       threadForm: 'diameter', requiresLength: true },
-  'press-nut': { headTypes: ['press-nut'], threadForm: 'metric',   requiresLength: false },
+  'set-screw': { headTypes: ['set-screw'], threadForm: 'metric',   requiredFields: ['thread', 'length'] },
+  insert:      { headTypes: ['insert'],    threadForm: 'metric',   requiredFields: ['thread', 'length'] },
+  pin:         { headTypes: ['pin'],       threadForm: 'diameter', requiredFields: ['thread', 'length'] },
+  'press-nut': { headTypes: ['press-nut'], threadForm: 'metric',   requiredFields: ['thread'] },
+
+  // ── Non-fastener types ──────────────────────────────────────────────────
+  // No threadForm, so `thread` is neither required nor checked.
+  'o-ring': {
+    headTypes: ['o-ring'], requiredFields: ['innerD', 'crossSection'],
+    variants: ['oring-nbr70', 'oring-fkm', 'oring-epdm'],
+  },
+  spring: {
+    headTypes: ['spring'], requiredFields: ['outerD', 'freeLength', 'wireD'],
+    variants: ['spring-compression', 'spring-extension', 'spring-torsion'],
+  },
+  spacer: {
+    headTypes: ['spacer'], requiredFields: ['outerD', 'innerD', 'length'],
+    variants: ['spacer-round', 'spacer-hex'],
+  },
 }
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -100,7 +130,7 @@ export const PART_TYPE_SPECS = {
  * @property {string}  message
  */
 
-const REQUIRED_STRINGS = ['sku', 'title', 'partType', 'headType', 'thread']
+const REQUIRED_STRINGS = ['sku', 'title', 'partType', 'headType']
 
 /**
  * Validate one catalog.
@@ -176,38 +206,51 @@ export function validateCatalog(catalog) {
     }
 
     // — Thread / nominal diameter —
-    if (typeof entry.thread === 'string' && entry.thread) {
+    // Only for types that have one. An o-ring has no thread, so none of this
+    // applies and `thread` is not required.
+    if (spec?.threadForm && typeof entry.thread === 'string' && entry.thread) {
       const isMetric = METRIC_THREAD_RE.test(entry.thread)
       const isDiam   = DIAMETER_RE.test(entry.thread)
 
       if (!isMetric && !isDiam) {
         err(sku, 'thread',
-          `Thread "${entry.thread}" is not metric. This project is metric-only: use "M3" for threads or "Ø3" for smooth shanks.`)
+          `Thread "${entry.thread}" is not metric. This project is metric-only: use "M3" for threads or "\u00D83" for smooth shanks.`)
       } else {
-        if (spec?.threadForm === 'metric' && !isMetric) {
+        if (spec.threadForm === 'metric' && !isMetric) {
           err(sku, 'thread', `partType "${entry.partType}" expects a metric thread (e.g. "M3"), got "${entry.thread}"`)
         }
-        if (spec?.threadForm === 'diameter' && !isDiam) {
-          err(sku, 'thread', `partType "${entry.partType}" expects a nominal diameter (e.g. "Ø3"), got "${entry.thread}"`)
+        if (spec.threadForm === 'diameter' && !isDiam) {
+          err(sku, 'thread', `partType "${entry.partType}" expects a nominal diameter (e.g. "\u00D83"), got "${entry.thread}"`)
         }
-        if (isDiam) {
-          warn(sku, 'thread',
-            `Nominal diameter "${entry.thread}" is not in THREAD_D (utils/fastenerDims.js) — the silhouette will be drawn at the 3 mm fallback diameter`)
-        }
-        if (spec && !spec.requiresLength && isMetric && !TABULATED_THREADS.includes(entry.thread)) {
+        if (!spec.requiredFields?.includes('length') && isMetric && !TABULATED_THREADS.includes(entry.thread)) {
           warn(sku, 'thread',
             `No empirical density row for "${entry.thread}-${entry.headType}" — order quantities fall back to the geometric estimate`)
         }
       }
     }
 
-    // — Length —
-    if (spec?.requiresLength) {
-      if (typeof entry.length !== 'number' || !(entry.length > 0)) {
-        err(sku, 'length', `partType "${entry.partType}" requires a positive numeric \`length\` (mm)`)
+    // — Required dimensions —
+    // Which fields these are is the part type's business, so a type sized by
+    // inner diameter and cross-section validates just as well as one sized by
+    // thread and length.
+    for (const field of spec?.requiredFields ?? []) {
+      const value = entry[field]
+      if (field === 'thread') {
+        if (typeof value !== 'string' || !value.trim()) {
+          err(sku, 'thread', `partType "${entry.partType}" requires a \`thread\``)
+        }
+        continue
       }
-    } else if (entry.length != null && typeof entry.length !== 'number') {
-      err(sku, 'length', '`length` must be a number when present')
+      if (typeof value !== 'number' || !(value > 0)) {
+        err(sku, field, `partType "${entry.partType}" requires a positive numeric \`${field}\` (mm)`)
+      }
+    }
+
+    // Numeric dimensions must be numbers whenever present, required or not.
+    for (const field of NUMERIC_FIELDS) {
+      if (entry[field] != null && typeof entry[field] !== 'number') {
+        err(sku, field, `\`${field}\` must be a number when present`)
+      }
     }
 
     // — Drive —

@@ -12524,5 +12524,35 @@
       "complete": true,
       "hash": "8a56fb389ac99634"
     }
+  },
+  {
+    "typeId": "o-ring",
+    "selection": {},
+    "result": {
+      "shape": "(none)",
+      "matches": 0,
+      "complete": true,
+      "hash": "e8893ffa4e83a543"
+    }
+  },
+  {
+    "typeId": "spring",
+    "selection": {},
+    "result": {
+      "shape": "(none)",
+      "matches": 0,
+      "complete": true,
+      "hash": "8f81d2b5ef78f6fd"
+    }
+  },
+  {
+    "typeId": "spacer",
+    "selection": {},
+    "result": {
+      "shape": "(none)",
+      "matches": 0,
+      "complete": true,
+      "hash": "55faac9b7fc6911c"
+    }
   }
 ]

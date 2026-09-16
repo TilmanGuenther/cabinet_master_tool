@@ -63,6 +63,12 @@ import insert    from './insert.js'
 import pin       from './pin.js'
 import pressNut  from './pressNut.js'
 
+// Non-fastener types. They declare no thread, head or length, and nothing
+// outside their own module knows that.
+import oring     from './oring.js'
+import spring    from './spring.js'
+import spacer    from './spacer.js'
+
 import {
   topScrew, sideScrew, L_CX, L_CY, L_R, R_X, R_Y, R_W, R_H,
 } from '../../utils/fastenerShapes.js'
@@ -77,6 +83,10 @@ export const PART_TYPES = {
   insert,
   pin,
   'press-nut': pressNut,
+
+  'o-ring': oring,
+  spring,
+  spacer,
 }
 
 /** Used when a part carries no type information at all. */
