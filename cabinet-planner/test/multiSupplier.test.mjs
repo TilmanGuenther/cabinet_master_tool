@@ -30,9 +30,15 @@ function withSecondSupplier(fn) {
   try { return fn() } finally { delete CATALOGS.wurth }
 }
 
-test('with one catalog the supplier question does not exist', () => {
-  assert.deepEqual(cascadeFor(getPartType('nut')), ['variant', 'thread'],
-    'nothing about the assigner changes until a second catalog is registered')
+test('supplier is asked only when a type has more than one seller', () => {
+  // Two catalogs ship now, so the step exists in principle for every type...
+  assert.deepEqual(cascadeFor(getPartType('nut')), ['supplier', 'variant', 'thread'])
+
+  // ...but only Motedis sells T-slot nuts, so there is no question to ask and
+  // the step resolves silently rather than offering a dropdown of one.
+  const tnut = buildCascade({ typeId: 't-slot-nut' })
+  assert.notEqual(tnut.steps[0].key, 'supplier')
+  assert.equal(tnut.resolved.supplier, 'motedis')
 })
 
 test('with two catalogs supplier is asked first', () => {

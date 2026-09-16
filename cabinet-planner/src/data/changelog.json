@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.2.0",
+    "date": "2026-09-16",
+    "changes": [
+      "Added Motedis as a second supplier, covering eleven I-type T-slot nuts for slot 5, 6 and 8 aluminium profiles — a range Bossard does not serve well",
+      "New part type: T-slot nut, sized by profile slot first and thread second, since an M5 nut for a slot 6 profile does not fit a slot 8 one",
+      "The part assigner now asks which supplier first whenever more than one sells the kind of part you are placing, and skips the question when only one does",
+      "Order List shows which supplier each part comes from, and exports one CSV per supplier",
+      "Fixed: assigning an o-ring, spring or spacer to a bin dropped its dimensions, so the label printed without a size and the suggested order quantity was far too high"
+    ]
+  },
+  {
     "version": "1.1.0",
     "date": "2026-09-16",
     "changes": [

@@ -68,6 +68,7 @@ import pressNut  from './pressNut.js'
 import oring     from './oring.js'
 import spring    from './spring.js'
 import spacer    from './spacer.js'
+import tSlotNut  from './tSlotNut.js'
 
 import {
   topScrew, sideScrew, L_CX, L_CY, L_R, R_X, R_Y, R_W, R_H,
@@ -87,6 +88,7 @@ export const PART_TYPES = {
   'o-ring': oring,
   spring,
   spacer,
+  't-slot-nut': tSlotNut,
 }
 
 /** Used when a part carries no type information at all. */
