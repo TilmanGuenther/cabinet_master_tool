@@ -25,9 +25,6 @@ import {
 const VW = 96   // viewBox width
 const VH = 48   // viewBox height
 // Left panel: 0–44  (top/drive view)
-const L_CX = 22
-const L_CY = 24
-const L_R  = 17.5
 // Divider at x=47
 // Right panel: 50–96  (side profile)
 const R_X = 50
@@ -170,7 +167,6 @@ export function getFastenerSVGLabelTop(part) {
  */
 export function getFastenerSVGLabelReduced(part) {
   if (!hasSilhouette(part)) return ''
-  const ht = part.headType
   const brk = breakBehaviour(part)
   if (!brk.reducible) return getFastenerSVGLabel(part)
 

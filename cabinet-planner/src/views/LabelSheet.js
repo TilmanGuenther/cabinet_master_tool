@@ -245,7 +245,6 @@ export function renderLabelSheet(container, state) {
         _allLabelKeys.push(key)
 
         // Resolve effective values — overrides take precedence over part data
-        const effectiveDescription = ov.description || part.description || bin.id
         const effectiveStandard    = 'standard' in ov ? ov.standard : (part.standard || '')
         const effectiveBN          = 'bn' in ov ? ov.bn : (part.bossardPN || '')
         const disableImage         = !!ov.disableImage
@@ -292,7 +291,7 @@ export function renderLabelSheet(container, state) {
               displayValue: false,
               lineColor: '#111',
             })
-          } catch (_) { /* invalid BN — skip barcode */ }
+          } catch { /* invalid BN — skip barcode */ }
           barcodeDiv.appendChild(svgEl)
           left.appendChild(barcodeDiv)
         }

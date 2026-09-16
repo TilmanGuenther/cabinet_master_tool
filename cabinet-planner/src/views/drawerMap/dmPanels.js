@@ -5,7 +5,7 @@ import { pushHistory, canUndo, canRedo, undo as undoHistory, redo as redoHistory
 import {
   getSelDrawerId, setSelDrawerId, getSelBinIds, setSelBinIds,
   getCreateMode, setCreateMode, getZoom, setZoom,
-  getMouseGridCell, setMouseGridCell, getPartSel, setPartSel,
+  setMouseGridCell, getPartSel, setPartSel,
   selBinId, rerender,
 } from './dmState.js'
 import {

@@ -9,7 +9,7 @@ import {
 } from './dmState.js'
 import {
   findDrawer, clamp, clampGroupDelta, hasMultiCollision, hasCollision, overlaps, uid,
-  parseBinsFromClipboardText, dbEntryToPart, buildPartDescription,
+  parseBinsFromClipboardText, dbEntryToPart,
 } from './dmHelpers.js'
 import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from './dmConstants.js'
 
@@ -338,7 +338,7 @@ export function setupKeybinds() {
   document.addEventListener('keydown', handler)
 }
 
-export function duplicateBin(bin, drawer, panel) {
+export function duplicateBin(bin, drawer, _panel) {
   const newX = bin.x + bin.w
   const gw   = drawer.gridW || 13
   const fits = newX + bin.w <= gw && !hasCollision(drawer.bins, null, newX, bin.y, bin.w, bin.h)
@@ -360,7 +360,7 @@ export function duplicateBin(bin, drawer, panel) {
   // Duplicating a part steps one along its size range: an M3x8 screw becomes an
   // M3x10. The part type decides which dimension that is.
   if (newBin.part?.bossardPN) {
-    const currentEntry = bossardDb.find(p => p.articleNumber === newBin.part.bossardPN)
+    const currentEntry = findBySku(newBin.part.supplier, newBin.part.bossardPN)
     if (currentEntry) {
       const nextEntry = nextAlongCascade(currentEntry)
       if (nextEntry) newBin.part = dbEntryToPart(nextEntry)

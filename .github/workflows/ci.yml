@@ -32,6 +32,13 @@ jobs:
       # Catalog data is validated before the build so a contributor gets a
       # precise per-SKU error rather than a silently-wrong silhouette or a
       # mispriced order line. See doc/CATALOG_SCHEMA.md.
+      # Catches identifiers used but never defined -- the one class of bug the
+      # bundler happily ships and the tests cannot see, because it only fails
+      # when a user clicks the thing.
+      - name: Lint
+        working-directory: cabinet-planner
+        run: npm run lint
+
       - name: Validate catalogs
         working-directory: cabinet-planner
         run: npm run validate

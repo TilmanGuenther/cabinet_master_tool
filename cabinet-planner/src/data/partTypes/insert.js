@@ -49,7 +49,6 @@ export default {
     labelBody(part) {
       const nomD = d(part.thread)
       const len  = part.length || 10
-      const ht   = part.headType
       let W, H, content
       // Horizontal cylinder with knurl bands + thread bore on right end
       const bodyH_mm = nomD * 1.8

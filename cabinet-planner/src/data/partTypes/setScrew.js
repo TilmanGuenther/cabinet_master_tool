@@ -50,7 +50,6 @@ export default {
     labelBody(part) {
       const nomD = d(part.thread)
       const len  = part.length || 10
-      const ht   = part.headType
       let W, H, content
       // Headless cylinder — same OD as thread, hex socket on right end
       const sockLen = nomD * 0.6

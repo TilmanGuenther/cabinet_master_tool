@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "eslint .",
     "validate": "node tools/validate-catalogs.mjs",
     "check:size": "node tools/check-bundle-size.mjs",
     "test:golden": "node --import ./test/register-hooks.mjs --test test/*.test.mjs",
     "test:golden:update": "node --import ./test/register-hooks.mjs test/update-golden.mjs",
-    "test": "npm run validate && npm run test:golden"
+    "test": "npm run lint && npm run validate && npm run test:golden"
   },
   "devDependencies": {
+    "eslint": "^10.10.0",
     "vite": "^5",
     "vite-plugin-singlefile": "^2"
   },

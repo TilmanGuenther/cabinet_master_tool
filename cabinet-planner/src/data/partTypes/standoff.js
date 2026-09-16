@@ -56,7 +56,6 @@ export default {
     labelBody(part) {
       const nomD = d(part.thread)
       const len  = part.length || 10
-      const ht   = part.headType
       let W, H, content
       const mf      = isMFStandoff(part)
       const bW      = nomD * 1.75

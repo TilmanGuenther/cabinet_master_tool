@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 import { computeGolden } from './compute-golden.mjs'
 import { buildCascade } from '../src/views/drawerMap/dmCascade.js'
-import { variantToFilter, walkCascade, digest, summarize } from './cascade-walk.mjs'
+import { walkCascade, summarize } from './cascade-walk.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -26,7 +26,7 @@ console.log(`Wrote ${golden.length} golden records to test/golden.snapshot.json`
 const cascade = walkCascade().map(({ typeId, selection }) => ({
   typeId,
   selection,
-  result: summarize(buildCascade({ typeId, selection, toFilter: variantToFilter })),
+  result: summarize(buildCascade({ typeId, selection })),
 }))
 writeFileSync(join(HERE, 'cascade.snapshot.json'), JSON.stringify(cascade, null, 2) + '\n')
 console.log(`Wrote ${cascade.length} cascade states to test/cascade.snapshot.json`)

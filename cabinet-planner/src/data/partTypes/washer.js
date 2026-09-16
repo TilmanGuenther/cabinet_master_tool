@@ -8,7 +8,7 @@ import { nominalDiameter } from './_shared.js'
 import {
   topWasher, sideWasher, R_X, R_Y, R_W, R_H,
 } from '../../utils/fastenerShapes.js'
-import { d, f, washerDims } from '../../utils/fastenerDims.js'
+import { f, washerDims } from '../../utils/fastenerDims.js'
 
 export default {
   id: 'washer',
@@ -57,9 +57,6 @@ export default {
      * Edge-on: two arms with the bore between them.
      */
     labelBody(part) {
-      const nomD = d(part.thread)
-      const len  = part.length || 10
-      const ht   = part.headType
       let W, H, content
       const { outerD: oD, innerD: iD, thick: th } = washerDims(part)
       W = th

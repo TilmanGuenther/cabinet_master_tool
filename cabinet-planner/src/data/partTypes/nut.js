@@ -7,7 +7,7 @@
 
 import { nominalDiameter, hexArea } from './_shared.js'
 import {
-  topHex, topSquareNut, sideNut, R_X, R_Y, R_W, R_H, L_R,
+  topHex, topSquareNut, sideNut, R_X, R_Y, R_W, R_H,
 } from '../../utils/fastenerShapes.js'
 import { d, f, isSquareNut } from '../../utils/fastenerDims.js'
 
@@ -66,8 +66,6 @@ export default {
      */
     labelBody(part) {
       const nomD = d(part.thread)
-      const len  = part.length || 10
-      const ht   = part.headType
       let W, H, content
       const sq    = isSquareNut(part)
       const bW    = sq ? nomD * 2.5  : nomD * 1.75
@@ -76,7 +74,6 @@ export default {
       const nyloc = !sq && (part.description?.toLowerCase().includes('nyloc') || part.standard?.includes('985'))
       W = bW
       H = bH * (nyloc ? 1.50 : 1.0)
-      const cy = bH / 2
       if (sq) {
         // Square nut: plain rectangle, no chamfers
         content =

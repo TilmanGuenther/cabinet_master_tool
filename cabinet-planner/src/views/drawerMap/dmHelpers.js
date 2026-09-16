@@ -1,5 +1,5 @@
 import { allParts } from '../../data/catalogs/index.js'
-import { CELL, INSET } from './dmConstants.js'
+import { INSET } from './dmConstants.js'
 import { typeForHeadType, describePart, resolvePartType } from '../../data/partTypes/index.js'
 
 // ── Part assigner helpers ─────────────────────────────────────────────────────

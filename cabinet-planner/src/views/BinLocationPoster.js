@@ -43,11 +43,7 @@ function colLetter(x) {
  * `charCount` is a rough estimate of the number of characters.
  * Returns a value clamped to [min, max].
  */
-function fitFontSize(availW, charCount, min, max) {
-  // Approximate: proportional font ≈ 0.58 × fontSize per character
-  const fs = availW / (charCount * 0.58)
-  return Math.max(min, Math.min(max, fs))
-}
+
 
 
 /** Build a complete SVG string for the poster. */
