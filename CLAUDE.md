@@ -20,6 +20,14 @@ npm run dev          # Vite dev server with HMR at http://localhost:5173
 
 # Production build
 npm run build        # produces dist/index.html (single self-contained file)
+
+# Checks (all of these run in CI)
+npm test             # lint + catalog validation + golden snapshots
+npm run lint         # eslint; narrow on purpose, no-undef is the point
+npm run validate     # catalogs against src/data/catalogs/schema.js
+npm run test:golden  # snapshots of every description, density, silhouette, cascade state
+npm run test:golden:update   # accept a deliberate output change, then READ THE DIFF
+npm run check:size   # dist/index.html against the 4 MB budget
 ```
 
 ### Tech Stack
@@ -34,44 +42,55 @@ npm run build        # produces dist/index.html (single self-contained file)
 cabinet-planner/
 ├── index.html              # app shell
 ├── vite.config.js
+├── eslint.config.js        # narrow: no-undef and no-unused-vars, not style
 ├── package.json
 ├── src/
 │   ├── main.js             # entry: tab navigation, view routing, theme management
-│   ├── state.js            # reactive state manager + localStorage auto-save + named snapshots
-│   ├── style.css           # all styles including @media print and CSS theme variables
+│   ├── state.js            # reactive state + localStorage auto-save + named snapshots
+│   ├── styles/             # tokens, base, views, drawMap, labelSheet, print
 │   ├── data/
-│   │   ├── bossard.js      # legacy fastener catalog (reference data, not imported by views)
-│   │   ├── bossard-db.json # parsed Bossard catalog used by DrawerMap part assigner
-│   │   ├── densities.js    # bulk density lookup + fallback estimator
+│   │   ├── catalogs/       # WHO SELLS A PART (extension point)
+│   │   │   ├── index.js    #   registry, allParts(), findBySku()
+│   │   │   ├── schema.js   #   vocabularies + validateCatalog()
+│   │   │   └── bossard/    #   meta.js + parts.json
+│   │   ├── partTypes/      # WHAT A PART IS (extension point)
+│   │   │   ├── index.js    #   registry, resolvePartType, describePart, svg dispatch
+│   │   │   ├── _fields.js  #   dimension fields and cascade behaviour
+│   │   │   ├── _shared.js  #   volume-model helpers
+│   │   │   └── *.js        #   screw, nut, washer, standoff, setScrew, insert, pin,
+│   │   │                   #   pressNut, oring, spring, spacer
+│   │   ├── bossard.js      # legacy standalone reference, not imported by views
+│   │   ├── cabinetTypes.js # per-brand cabinet constants (extension point)
+│   │   ├── densities.js    # empirical density table; geometry lives in partTypes
 │   │   └── sampleConfig.js # default config for first-time use
 │   ├── views/
-│   │   ├── Setup.js           # config import/export, cabinet + drawer CRUD, named saves
-│   │   ├── DrawerMap.js       # interactive 3-panel bin editor (drag-to-create, drag-to-move)
-│   │   ├── LabelSheet.js      # Avery-style labels with QR codes and barcodes
-│   │   ├── OrderList.js       # quantity calculator + CSV export
-│   │   ├── BinLocationPoster.js # full-scale 1:1 SVG printable drawer map
-│   │   └── Help.js            # help modal with keyboard shortcuts and reference tabs
+│   │   ├── Home.js  Setup.js  DrawerMap.js  LabelSheet.js  OrderList.js
+│   │   ├── BinLocationPoster.js  DataManager.js  StockOrder.js  BinModels.js  Help.js
+│   │   ├── drawerMap/      # dmCascade (assigner engine), dmPanels, dmHelpers,
+│   │   │                   # dmState, dmKeybinds, dmConstants
+│   │   └── labelSheet/     # lsHelpers, lsSidebar
 │   └── utils/
-│       ├── fastenerSvg.js  # B&W SVG silhouette icons for all fastener types
-│       ├── volume.js       # bin volume + fill calculations
-│       └── print.js        # print mode helpers
+│       ├── partIdentity.js # (supplier, sku) identity, with a legacy read path
+│       ├── partDims.js     # proportions + shape discriminators
+│       ├── partShapes.js   # SVG shape primitives (toolkit, not dispatcher)
+│       ├── partSvg.js      # canvases + break overlay
+│       ├── binHistory.js  volume.js  print.js
 ├── doc/
-│   ├── ARCHITECTURE.md     # detailed architecture and data flow
-│   ├── CONFIG_SCHEMA.md    # JSON config schema reference
-│   ├── DECISIONS.md        # architectural decisions log
-│   └── PHYSICAL_REFERENCE.md # LISTA/Gridfinity dimensions
+│   ├── ARCHITECTURE.md  CONFIG_SCHEMA.md  DECISIONS.md  PHYSICAL_REFERENCE.md
+│   ├── CATALOG_SCHEMA.md      # contributor reference for catalog entries
+│   └── CATALOG_PLUGIN_PLAN.md # the plan these extension points came from
+├── test/                   # node:test; golden + cascade snapshots
 └── tools/
-    ├── parse_bossard.py    # Python script to extract catalog data from PDFs
-    ├── requirements.txt
-    └── pdfs/               # Bossard PDF datasheets (source for bossard-db.json)
+    ├── validate-catalogs.mjs  check:size  new-catalog.mjs  new-part-type.mjs
+    └── importers/bossard/     # parse.py + pdfs/ (PDFs not committed)
 ```
-
 ### Key Architecture Patterns
 - **State management**: `src/state.js` — simple pub/sub. `getState()`, `setState()`, `updateState()`, `subscribe()`. Auto-saves to localStorage on every change; also supports named snapshots (`createSave`, `loadSave`, `deleteSave`, `getSaves`).
 - **Views**: Each view exports a `renderXxx(container, state)` function. Views are stateless renderers — they receive state and build DOM.
 - **Navigation**: Tab-based in `main.js` (Setup, Drawer Map, Labels, Order List, Bin Poster). Views can trigger navigation via `document.dispatchEvent(new CustomEvent('navigate', { detail: 'key' }))`.
 - **Theme**: Light/dark mode managed in `main.js`, persisted to localStorage, with system preference fallback. CSS custom properties (variables) drive all theme colors.
 - **Config JSON is source of truth**: The app is a viewer/generator. The JSON file defines what's in the cabinet. localStorage auto-save is a convenience layer on top.
+- **Two extension points** (see `CONTRIBUTING.md`): a **catalog** (`data/catalogs/`) is a supplier's parts; a **part type** (`data/partTypes/`) is a kind of part. Adding either should never require touching a view, a renderer or the query layer.
 
 ### Physical Constants (do not change casually)
 - Gridfinity base unit: 42mm × 42mm
@@ -86,11 +105,20 @@ cabinet-planner/
 ### When Editing
 - All view files follow the same pattern: `export function renderXxx(container, state)`
 - The `esc()` helper in each view is for HTML escaping — use it for any user-supplied text
-- Density lookup: `getDensity(thread, headType, length)` in `densities.js` — has automatic fallback
-- Bossard catalog is reference-only; the config JSON defines actual bin contents
-- `bossard-db.json` is the parsed catalog used by the DrawerMap part assigner. Re-generate with `tools/parse_bossard.py` if PDFs change
-- Fastener SVG icons: `utils/fastenerSvg.js` — exports `makeFastenerSVGEl(part, opts)` used by LabelSheet and DrawerMap
-- Print CSS is in `style.css` under `@media print` — views add `no-print` class to hide UI controls. Three print targets: label sheet, drawer map (BinLocationPoster), and single-drawer print
+- Density: `getDensity(part)` in `densities.js` dispatches to the part type's `volumeMM3`
+- Part identity is the `(supplier, sku)` pair via `utils/partIdentity.js` — never a bare
+  article number, which two suppliers can collide on. `bossardPN` is a deprecated alias,
+  still read so older configs keep working
+- Catalogs state `partType`, `variant` and `shape` explicitly. Do not reintroduce guessing
+  them from title text — that silently mis-drew any non-German catalog and took a phase to
+  remove
+- Part silhouettes: each type's `svg` descriptor in `data/partTypes/`, composed from the
+  primitives in `utils/partShapes.js`. A type may omit `svg`; labels fall back to text
+- Print CSS is in `styles/print.css` — views add `no-print` to hide UI controls. Three
+  print targets: label sheet, bin poster, single-drawer print
+- **`npm test` before and after any change.** A refactor meant to change nothing must leave
+  `test/*.snapshot.json` byte-identical; a deliberate change is accepted with
+  `npm run test:golden:update` and the diff is the review artefact
 
 ### Conventions
 - No TypeScript, no JSX, no build-time type checking

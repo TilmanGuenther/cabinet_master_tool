@@ -6,8 +6,8 @@ Reads all PDFs in ./pdfs/, extracts part metadata and article numbers,
 outputs ../src/data/catalogs/bossard/parts.json in the normalized
 catalog schema (see doc/CATALOG_SCHEMA.md).
 
-Usage (from cabinet-planner/tools/):
-    python3 parse_bossard.py
+Usage (from cabinet-planner/tools/importers/bossard/):
+    python3 parse.py
 
 Requirements:
     pip install pymupdf
@@ -24,8 +24,9 @@ except ImportError:
     sys.exit("Missing dependency: pip install pymupdf")
 
 PDF_DIR = Path(__file__).parent / "pdfs"
-OUT_FILE = (Path(__file__).parent.parent / "src" / "data" / "catalogs"
-            / "bossard" / "parts.json")
+# Repo root is three levels up now: tools/importers/bossard/parse.py
+ROOT = Path(__file__).resolve().parents[3]
+OUT_FILE = ROOT / "src" / "data" / "catalogs" / "bossard" / "parts.json"
 
 # --- Mappings ---
 

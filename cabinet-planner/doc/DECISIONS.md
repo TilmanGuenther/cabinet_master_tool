@@ -87,6 +87,35 @@ geometries, labels, description, packed-volume model, silhouette and assigner ca
 like an o-ring — is one module plus a registry line. A type may omit `svg` and its labels
 fall back to text. Legacy configs without `partType` still resolve via `headType`.
 
+## ADR-012: Golden snapshots as the refactoring contract
+**Status**: Decided
+**Context**: Making catalogs and part types pluggable meant moving descriptions, densities
+and four separate silhouette renderers across a dozen files. Nothing about that work is
+visible until a label prints wrong or an order quantity drifts, and neither shows up in a
+build.
+**Decision**: Snapshot every user-visible output — description text, compact label text,
+the stored part record, order-list density and all four silhouettes — for a frozen slice of
+the catalog, plus every reachable state of the part assigner. A refactor that is meant to
+change nothing must leave the snapshot files byte-identical; a deliberate change is
+accepted by regenerating them, and the resulting diff is the review artefact.
+**Consequences**: Several wide refactors were merged with proof rather than argument, and
+the one phase that did change output (supplier-neutral part records) was shown to change
+only the part record and nothing else. The snapshots are large, and a contributor who
+changes output must read a diff rather than just re-running a command.
+
+## ADR-013: Node's test runner and a deliberately narrow linter
+**Status**: Decided
+**Context**: The project had no tests and no linter. Vitest, the obvious choice for a Vite
+project, now requires Vite 6 while this project pins Vite 5.
+**Decision**: Use Node's built-in test runner rather than pinning an old framework, with a
+12-line resolve hook so tests exercise the real module graph (Node wants an import
+attribute for JSON where Vite does not). Add ESLint configured almost entirely for
+`no-undef` and `no-unused-vars`, not style.
+**Consequences**: Zero test-framework dependencies. The linter exists because an
+undefined identifier inside a function body is the one class of bug the bundler ships
+happily and the snapshots cannot see — it found a broken bin-duplication path and a
+long-broken "jump to drawer" button within a minute of being added.
+
 ---
 
 ## Open Questions

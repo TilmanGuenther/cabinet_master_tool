@@ -21,22 +21,48 @@ JSON download / CSV download / Print / SVG
 ```
 main.js
 ├── state.js ← data/sampleConfig.js
-├── views/Setup.js ← state.js
-├── views/DrawerMap.js ← state.js, data/catalogs/, data/partTypes/, utils/fastenerSvg.js
-├── views/LabelSheet.js ← state.js, utils/fastenerSvg.js, utils/print.js, qrcode, jsbarcode
-├── views/OrderList.js ← state.js, utils/volume.js, data/densities.js
-├── views/BinLocationPoster.js ← state.js, utils/print.js
-├── views/Help.js  (standalone, no state dependency)
+├── views/Setup.js            ← state.js
+├── views/DrawerMap.js        ← state.js, drawerMap/*, data/partTypes/, data/catalogs/
+├── views/LabelSheet.js       ← state.js, utils/partSvg.js, utils/partIdentity.js, qrcode, jsbarcode
+├── views/OrderList.js        ← state.js, utils/volume.js, data/densities.js, utils/partIdentity.js
+├── views/BinLocationPoster.js ← state.js, utils/print.js, utils/partIdentity.js
+├── views/DataManager.js      ← state.js, data/catalogs/
+├── views/Help.js             (standalone)
 │
-├── data/bossard.js      (legacy standalone reference, not imported by views)
-├── data/catalogs/       (supplier catalogs: who sells a part)
-│   ├── index.js         registry + allParts() + findBySku()
-│   ├── schema.js        vocabularies + validateCatalog()
-│   └── bossard/         meta.js + parts.json
-├── data/partTypes/      (what a part is: dimensions, description, density, drawing)
-├── data/densities.js    (empirical table; geometry lives in partTypes)
-└── data/sampleConfig.js (imported by state.js)
+├── data/catalogs/            WHO SELLS A PART
+│   ├── index.js              registry, allParts(), findBySku()
+│   ├── schema.js             vocabularies + validateCatalog()
+│   └── <supplier>/           meta.js + parts.json
+│
+├── data/partTypes/           WHAT A PART IS
+│   ├── index.js              registry, resolvePartType(), describePart(), svg dispatch
+│   ├── _fields.js            dimension fields and how each behaves in the cascade
+│   ├── _shared.js            helpers for volume models
+│   └── <type>.js             one module per part type
+│
+├── data/densities.js         empirical table; geometry lives in partTypes
+└── utils/
+    ├── partIdentity.js       (supplier, sku) identity, with a legacy read path
+    ├── partDims.js           proportions and shape discriminators
+    ├── partShapes.js         SVG shape primitives (a toolkit, not a dispatcher)
+    └── partSvg.js            canvases and the break overlay
 ```
+
+## Extension Points
+
+Two, independent of each other, both documented in `CONTRIBUTING.md`:
+
+- **Catalogs** (`data/catalogs/`) — a supplier's parts. One directory plus one
+  registry line. Entries use a supplier-neutral schema and state `partType`,
+  `variant` and `shape` explicitly rather than leaving them to be inferred.
+- **Part types** (`data/partTypes/`) — a kind of part. One module declaring its
+  geometries, assigner cascade, description, packed-volume model and (optionally)
+  its drawing. `o-ring` is the worked example of one with no thread, no head and
+  no length.
+
+Neither requires touching a view, a renderer or the query layer. `npm run validate`
+checks catalogs against the schema; the golden snapshots check that adding either
+changes nothing that already existed.
 
 ## State Management
 

@@ -589,7 +589,7 @@ one match, from the chosen supplier. That is the collision Phase 4 introduced
 `partIdentity()` to prevent, now demonstrated rather than asserted. Duplicating a bin also
 stays inside its own catalog.
 
-### Phase 8 — Contributor tooling and docs
+### Phase 8 — Contributor tooling and docs — **DONE**
 
 | # | Task | Files |
 |---|---|---|
@@ -600,6 +600,55 @@ stays inside its own catalog.
 | 8.5 | Refresh `doc/ARCHITECTURE.md` dependency graph + `CLAUDE.md` project structure — both are stale already (they predate `views/drawerMap/*`, `StockOrder`, `BinModels`, `DataManager`) | `doc/ARCHITECTURE.md`, `CLAUDE.md` |
 
 ---
+
+**Shipped as**: `CONTRIBUTING.md` at the repo root, `tools/new-catalog.mjs` and
+`tools/new-part-type.mjs`, `tools/importers/<id>/` with the Bossard parser moved into it,
+ADR-012 and ADR-013, and a refresh of `ARCHITECTURE.md`, `CLAUDE.md` and both tool READMEs
+— all three had drifted badly enough to describe a structure that no longer existed.
+
+The scaffolds were checked by running them: `new-catalog.mjs` produces a directory the
+validator discovers by itself, and `new-part-type.mjs` produces a module that loads and
+whose `describe`, `shortLabel` and `volumeMM3` all return sensible values before a
+contributor has edited anything.
+
+The deferred 6.5 rename landed here too: `fastenerSvg`/`fastenerDims`/`fastenerShapes`
+became `partSvg`/`partDims`/`partShapes`, with both snapshots byte-identical.
+
+---
+
+## 3a. Where this ended up
+
+All eight phases are done. The two extension points work, and both are exercised by tests
+that register catalogs in memory rather than by argument:
+
+- **A catalog** is a directory and one registry line. Its parts appear in the assigner,
+  get silhouettes and density-based order quantities from their part type, and are
+  labelled and barcoded from its own `meta.js` — with no view file touched.
+- **A part type** is one module. `o-ring` proves the general case: no thread, no head, no
+  length, 90 lines, and nothing outside it knows it exists.
+
+What guards it: a narrow linter for undefined identifiers, per-SKU catalog validation,
+golden snapshots of every description, density and silhouette, a snapshot of all 938
+reachable assigner states, and a bundle-size budget — all four in CI on every pull request,
+where before this work there was no CI outside the deploy job.
+
+Five real defects surfaced along the way and are recorded in the phase notes above: the
+3 mm thread fallback affecting a fifth of the catalog (F-1), a retaining ring mislabelled
+as a washer (F-2), a broken bin-duplication path, a long-broken "jump to drawer" button,
+and a stale validator warning left by an incomplete regex in the F-1 fix.
+
+### Not done, deliberately
+
+- **Imperial threads.** Metric-only is enforced by the validator. Supporting imperial
+  needs a thread-spec table, not just catalog data.
+- **Non-fastener catalogs beyond the reference types.** o-ring, spring and spacer ship as
+  part types with no data; supplying it is a contributor's job.
+- **Calibrated packing factors.** Every `volumeMM3` factor is a documented estimate. They
+  decide how many pieces the order list tells someone to buy, and only a real bin can
+  settle them.
+- **The `headType` name.** It now means "which geometry within this type", which is why an
+  o-ring has `headType: 'o-ring'`. Renaming it would touch every config ever written; the
+  fiction is documented instead.
 
 ## 4. Scope decisions (settled)
 
