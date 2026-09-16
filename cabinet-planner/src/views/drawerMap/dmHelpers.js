@@ -1,14 +1,11 @@
 import bossardDb from '../../data/bossard-db.json'
-import { TYPE_DEFS, HEAD_LABELS, VARIANT_DEFS, CELL, INSET } from './dmConstants.js'
+import { VARIANT_DEFS, CELL, INSET } from './dmConstants.js'
+import { typeForHeadType, describePart } from '../../data/partTypes/index.js'
 
 // ── Part assigner helpers ─────────────────────────────────────────────────────
 
-export function typeForHeadType(ht) {
-  for (const [type, def] of Object.entries(TYPE_DEFS)) {
-    if (def.headTypes.includes(ht)) return type
-  }
-  return null
-}
+// Re-exported so existing importers keep working; the registry owns it now.
+export { typeForHeadType }
 
 export function variantForEntry(entry) {
   const type = typeForHeadType(entry.headType)
@@ -36,16 +33,7 @@ export function sortThreads(threads) {
 }
 
 export function buildPartDescription(entry) {
-  const parts = []
-  if (entry.thread)          parts.push(entry.thread)
-  if (entry.length != null)  parts.push(`\xD7${entry.length}`)
-  const variant = variantForEntry(entry)
-  const headLbl = variant ? variant.label : HEAD_LABELS[entry.headType]
-  if (headLbl)               parts.push(headLbl)
-  if (entry.drive)           parts.push(entry.drive)
-  if (entry.material)        parts.push(entry.material)
-  if (entry.materialGrade)   parts.push(entry.materialGrade)
-  return parts.join(' ')
+  return describePart(entry, variantForEntry(entry)?.label)
 }
 
 export function dbEntryToPart(entry) {

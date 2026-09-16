@@ -37,8 +37,13 @@ export function computeGolden() {
       shortLabel: formatDesc(part),
       // The full part record written into a user's config
       part,
-      // Pieces per ml, which drives every order-list quantity
-      density: getDensity(part.thread, part.headType, part.length),
+      // Pieces per ml, which drives every order-list quantity. Called the way
+      // OrderList calls it, fallbacks included.
+      density: getDensity({
+        ...part,
+        thread:   part.thread   || 'M3',
+        headType: part.headType || 'socket',
+      }),
 
       // Silhouettes: assigner preview, label side, label top, shortened side
       svg: getFastenerSVG(part),

@@ -1,3 +1,5 @@
+import { PART_TYPES } from '../../data/partTypes/index.js'
+
 export const CELL = 42   // px per Gridfinity grid unit (base, before zoom)
 export const INSET = 2   // px gap between grid line and bin edge
 
@@ -5,30 +7,20 @@ export const ZOOM_MIN  = 0.25
 export const ZOOM_MAX  = 2.0
 export const ZOOM_STEP = 0.25
 
-export const TYPE_DEFS = {
-  screw:       { label: 'Screw',     headTypes: ['button', 'socket', 'low-socket', 'countersunk'] },
-  nut:         { label: 'Nut',       headTypes: ['nut'] },
-  washer:      { label: 'Washer',    headTypes: ['washer'] },
-  standoff:    { label: 'Standoff',  headTypes: ['standoff'] },
-  'set-screw': { label: 'Set Screw', headTypes: ['set-screw'] },
-  insert:      { label: 'Insert',    headTypes: ['insert'] },
-  pin:         { label: 'Pin',       headTypes: ['pin'] },
-  'press-nut': { label: 'Press-In Nut', headTypes: ['press-nut'] },
-}
+// Part type metadata is owned by the part type registry; these two exports are
+// views onto it so the drawer map keeps its existing shape.
+// Adding a part type means adding a module in src/data/partTypes/, not editing
+// anything here.
 
-export const HEAD_LABELS = {
-  button:       'Button Head',
-  socket:       'Socket Head',
-  'low-socket': 'Low Socket Head',
-  countersunk:  'Countersunk',
-  nut:          'Nut',
-  washer:       'Washer',
-  standoff:     'Standoff',
-  'set-screw':  'Set Screw',
-  insert:       'Threaded Insert',
-  pin:          'Cylindrical Pin',
-  'press-nut':  'Press-In Nut',
-}
+/** partType id -> { label, headTypes }, in assigner dropdown order. */
+export const TYPE_DEFS = Object.fromEntries(
+  Object.entries(PART_TYPES).map(([id, type]) => [id, { label: type.label, headTypes: type.headTypes }]),
+)
+
+/** headType -> human label, flattened across every part type. */
+export const HEAD_LABELS = Object.fromEntries(
+  Object.values(PART_TYPES).flatMap(type => Object.entries(type.headLabels)),
+)
 
 // Variants for types that come in multiple sub-kinds (keyed by TYPE_DEFS key)
 // norms: bossardNorm values that belong to this variant

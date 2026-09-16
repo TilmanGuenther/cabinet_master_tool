@@ -69,7 +69,12 @@ export function renderOrderList(container, state) {
       const part = bin.part || {}
       const effectiveHeightUnits = bin.heightUnits ?? (drawer.defaultHeightUnits ?? 6)
       const vol = binVolumeML(bin.w, bin.h, effectiveHeightUnits)
-      const density = getDensity(part.thread || 'M3', part.headType || 'socket', part.length)
+      // Bins with no part assigned still show a plausible quantity, as before.
+      const density = getDensity({
+        ...part,
+        thread:   part.thread   || 'M3',
+        headType: part.headType || 'socket',
+      })
       const qty = roundToNearest(vol * density * (fillPercent / 100), roundTo)
       const binKey = bin.id || `${drawer.id}-${bin.w}-${bin.h}`
       const inCart = cartItems[binKey] || false
