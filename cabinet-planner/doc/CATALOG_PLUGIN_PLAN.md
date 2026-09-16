@@ -329,11 +329,11 @@ Bossard catalog: **0 errors, 300 warnings** across 923 entries.
 
 Running the validator against the shipped data turned up two real defects.
 
-**F-1 — ~180 entries render at the wrong physical size (open).**
-`THREAD_D` in `utils/fastenerDims.js` covers only M2–M10, and `d()` falls back to
+**F-1 — ~180 entries rendered at the wrong physical size (fixed in 1.6).**
+`THREAD_D` in `utils/fastenerDims.js` covered only M2–M10, and `d()` fell back to
 **3 mm** for anything else. The catalog contains M1, M1.4, M1.6, M1.7, M2.3, M2.6, M3.5,
 M4.5, M7, M12–M36 and every `Ø` pin diameter — about a fifth of all entries. Verified
-directly:
+directly, before the fix:
 
 ```
 M3    nominal d = 3   headW = 4.5
@@ -343,12 +343,17 @@ M36   nominal d = 3   headW = 4.5      ← identical to M3
 Ø10   nominal d = 3   headW = 4.5      ← identical to M3
 ```
 
-So an M16 screw and an M36 washer are drawn the same size as an M3, on labels and on the
-bin poster. The fix is small — parse the numeric part of the thread string instead of
-looking it up in a table, exactly as `densities.js nominalDiameter()` already does — but
-it **changes rendered output for existing users**, which is precisely what the Phase 1.5
-golden test exists to catch. Scheduled as **1.6**, after that test lands. The validator
-warns on every affected entry in the meantime.
+So an M16 screw and an M36 washer were drawn the same size as an M3, on labels and on the
+bin poster. `d()` now parses the numeric part of the thread string, exactly as
+`densities.js nominalDiameter()` already did; the two definitions are now one.
+
+Because this changes rendered output it was held until the golden test was in place, and
+that test recorded it precisely: 9 of 43 fixtures changed, all with threads outside
+M2–M10, and only their silhouettes — descriptions, part records and order-list densities
+were untouched, and the M3/M6 controls did not move. In physical units a Ø1 pin was being
+drawn 3.00 mm tall and is now 1.00 mm; an M1.6 washer was 6.75 mm across and is now
+3.60 mm, which is 2.25 × 1.6 as DIN 125 requires. Validator warnings dropped from 300 to
+182; the remainder are density-table gaps, a separate limitation.
 
 **F-2 — one misclassified part (fixed).**
 SKU `1284592` (`BN 809`, DIN 6799 `Sicherungsscheiben für Wellen`) is a retaining
@@ -359,7 +364,7 @@ Removed from the catalog, and the parser now recognises retaining rings and skip
 unclassifiable files loudly instead of mislabelling them. Retaining rings are a good
 candidate part type for Phase 6.
 
-### Phase 1 — Part type registry (pure refactor, no behaviour change)
+### Phase 1 — Part type registry (pure refactor, no behaviour change) — **DONE**
 
 | # | Task | Files |
 |---|---|---|
@@ -372,6 +377,22 @@ candidate part type for Phase 6.
 
 1.5 is what makes this refactor safe to merge — it is the only thing standing between a
 registry refactor and silently changing every existing user's order quantities.
+
+**Shipped as**: `src/data/partTypes/` — a registry plus one module per type, each owning
+its head geometries, labels, description text, packed-volume model and all four silhouette
+renderers. `densities.js` keeps only the empirical table; `fastenerShapes.js` becomes an
+exported toolkit of shape primitives rather than a dispatcher; `fastenerSvg.js` drops from
+440 to 229 lines and owns only canvases and the break overlay. `TYPE_DEFS` and
+`HEAD_LABELS` are now views onto the registry.
+
+1.5 was sequenced first, so the golden test existed before anything moved; every step was
+then verified with the snapshot file untouched, which is what makes a refactor this wide
+safe to merge. `getFastenerSVGLabel` turned out to be a second full per-head renderer
+rather than a thin wrapper, so 1.4 was split into dispatch and geometry.
+
+A part type module is now self-contained: `pin.js` is 62 lines covering its label,
+description, density and every drawing. A type may omit `svg` entirely and labels fall
+back to text — which matters for Phase 6, where an o-ring has no head geometry at all.
 
 ### Phase 2 — Data-driven assigner cascade (still fasteners only)
 
