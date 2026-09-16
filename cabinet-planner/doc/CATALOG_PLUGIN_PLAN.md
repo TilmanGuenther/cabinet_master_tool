@@ -1,23 +1,31 @@
-# Plan: Contributor-Extensible Supplier Catalogs
+# Plan: Contributor-Extensible Part Catalogs
 
-**Status**: Proposed
+**Status**: Proposed — scope decisions settled (§4)
 **Goal**: Let a developer add a new supplier's part database (McMaster-Carr, Würth, Misumi,
-AliExpress kits, a machine shop's in-house stock list …) by adding **one self-contained
-folder plus one registry line**, and have it work correctly everywhere in the app —
-part assigner, silhouettes, densities, labels, barcodes, order lists — with automated
-feedback if the data is wrong.
+a machine shop's in-house stock list …) **and new kinds of part** (springs, o-rings,
+spacers, bearings …) by adding self-contained modules plus a registry line, and have it
+work correctly everywhere — part assigner, silhouettes, densities, labels, barcodes,
+order lists — with automated feedback when the data is wrong.
 
 This is a **contributor-facing** extension point, not a user-facing feature. Adding a
-catalog is a code change + PR, exactly like adding a cabinet type today
-(`src/data/cabinetTypes.js`, ADR-007). No runtime catalog upload, no fetch, no backend.
+catalog or a part type is a code change + PR, exactly like adding a cabinet type today
+(`src/data/cabinetTypes.js`, ADR-007). No runtime upload, no fetch, no backend.
+
+There are **two** extension points, and they are independent:
+
+| Extension point | Answers | Added by |
+|---|---|---|
+| **Catalog** | *who sells it* — SKUs, norms, prices, barcodes | `src/data/catalogs/<id>/` |
+| **Part type** | *what it is* — dimensions, description, density model, silhouette | `src/data/partTypes/<id>.js` |
+
+A contributor adding Würth screws needs only the first. A contributor adding o-rings needs
+both. Today **neither exists**.
 
 ---
 
 ## 1. Where we are today
 
-The Bossard catalog is not a plugin — it is welded into the app at six separate layers.
-
-### 1.1 Three hard-coded imports, no registry
+### 1.1 Three hard-coded imports, no catalog registry
 
 ```
 src/views/drawerMap/dmHelpers.js:1   import bossardDb from '../../data/bossard-db.json'
@@ -26,25 +34,24 @@ src/views/drawerMap/dmKeybinds.js:2  import bossardDb from '../../data/bossard-d
 ```
 
 `dbFilter()` (`dmHelpers.js:20`) closes over that single array. There is no seam where a
-second dataset could enter. Adding one today means editing three unrelated view files.
+second dataset could enter.
 
 ### 1.2 Supplier-specific field names are the app's vocabulary
 
-`articleNumber` / `bossardNorm` in the catalog become `bossardPN` / `bossardNorm` on the
-part record (`dmHelpers.js:55-56`) and from there spread across the app:
+`articleNumber` / `bossardNorm` become `bossardPN` / `bossardNorm` on the part record
+(`dmHelpers.js:55-56`) and spread from there:
 
 | Location | Usage |
 |---|---|
 | `doc/CONFIG_SCHEMA.md:75` | `part.bossardPN` is **persisted in user config files** |
 | `LabelSheet.js:249` | barcode source |
-| `labelSheet/lsSidebar.js:102`, `dmPanels.js:670` | override field labelled `BN (barcode)` |
-| `BinLocationPoster.js:182,455` | poster PN column |
+| `lsSidebar.js:102`, `dmPanels.js:670` | override field labelled `BN (barcode)` |
+| `BinLocationPoster.js:181,454` | poster PN line |
 | `OrderList.js:79,94,143` | table column + CSV header literal `'Bossard PN,…'` |
 | `dmPanels.js:798`, `dmKeybinds.js:361` | **identity lookup** `find(p => p.articleNumber === part.bossardPN)` |
 
-A second supplier has no "BN" and no Bossard article number. Worse, the identity lookup
-uses a bare article number as a global key — two suppliers *will* collide on plain
-numeric SKUs, and the wrong catalog entry would be silently matched.
+The identity lookup uses a bare article number as a global key — two suppliers *will*
+collide on plain numeric SKUs, and the wrong entry would be silently matched.
 
 ### 1.3 Variant classification is keyed on Bossard norm strings
 
@@ -58,13 +65,9 @@ export const VARIANT_DEFS = {
 ```
 
 `variantForEntry()` matches `entry.bossardNorm` against those literals. A contributor's
-square nuts carry e.g. `"91828A"` instead, so:
-
-- `availableVariants` (`dmPanels.js:853`) filters them out,
-- the assigner hits `if (!s.variant) return` and **stops the cascade**,
-- the parts are silently unreachable in the UI even though they are in the bundle.
-
-This is the single biggest silent-failure trap for a new catalog.
+square nuts carry e.g. `"91828A"`, so `availableVariants` (`dmPanels.js:853`) filters them
+out, the assigner hits `if (!s.variant) return`, and the parts become **unreachable in the
+UI despite being in the bundle**.
 
 ### 1.4 Silhouette geometry sniffs German catalog prose
 
@@ -76,11 +79,11 @@ isSquareNut(part)     // part.bossardNorm === 'BN 145' || part.title?.includes('
 isMFStandoff(part)    // part.title?.includes('Aussengewinde')
 ```
 
-`fastenerShapes.js:249` additionally sniffs `description.includes('nyloc') || standard.includes('985')`.
+plus `fastenerShapes.js:249` and `lsHelpers.js:50` independently sniffing
+`description.includes('nyloc') || standard.includes('985')`.
 
-So the rendered drawing depends on German free text and Bossard norm numbers. An
-English-language catalog renders large washers as standard washers, square nuts as hex,
-M/F standoffs as F/F, and nylocs as plain nuts — all **silently, with no warning**.
+An English-language catalog renders large washers as standard, square nuts as hex, M/F
+standoffs as F/F and nylocs as plain nuts — silently.
 
 ### 1.5 Closed vocabularies with zero validation
 
@@ -91,56 +94,124 @@ M/F standoffs as F/F, and nylocs as plain nuts — all **silently, with no warni
 | `dmConstants.js` `TYPE_DEFS` | `typeForHeadType()` → `null`, part never appears in the Type dropdown |
 | `dmConstants.js` `HEAD_LABELS` | raw key leaks into UI text |
 | `densities.js` `boundingVolMM3()` | falls into `default:` — generic cylinder, wrong order quantities |
-| `fastenerShapes.js` `makeTopView`/`makeSideView` | falls back to "generic screw" drawing |
+| `fastenerShapes.js` dispatch | falls back to "generic screw" drawing |
 
-`thread` has the same problem against `fastenerDims.js THREAD_D` (unknown → **silently 3 mm**)
-and `densities.js TABLE` keys. A single typo (`"socket-head"`, `"m3"`) produces a catalog
-that builds fine, ships fine, and is quietly wrong. Nothing validates any of it —
-there is no test runner, no linter, and `.github/workflows/deploy.yml` only builds `main`.
+`thread` has the same problem against `fastenerDims.js THREAD_D` (unknown → **silently
+3 mm**). There is no test runner, no linter, and `.github/workflows/deploy.yml` only
+builds `main` — a catalog PR gets no automated signal at all.
 
 ### 1.6 Ingest tooling is Bossard-shaped
 
-`tools/parse_bossard.py` hard-codes `OUT_FILE = src/data/bossard-db.json`, German header
-labels (`Kopfform`, `Antrieb`, `Werkstoff`), and PyMuPDF PDF parsing. A contributor with
-a CSV export has no documented target format to aim at — the schema exists only as
-whatever that script happens to emit.
+`tools/parse_bossard.py` hard-codes `OUT_FILE`, German header labels (`Kopfform`,
+`Antrieb`, `Werkstoff`) and PyMuPDF PDF parsing. The entry schema exists only as
+"whatever that script happens to emit" — there is nothing for a contributor with a CSV
+to aim at.
 
 ### 1.7 Bundle budget
 
-`bossard-db.json` is **315 KB / 924 entries**, inlined verbatim into `dist/index.html`
-by `vite-plugin-singlefile` (ADR-003 forbids `fetch`). A current `npm run build` produces
-**1.20 MB** (304 KB gzipped) — roughly a quarter of it is that one catalog. Ten contributed
-catalogs of the same size would push the single-file output past 4 MB. This needs a stated
-budget and a build-time check before it becomes a problem, not after.
+`bossard-db.json` is 315 KB / 924 entries, inlined verbatim by `vite-plugin-singlefile`
+(ADR-003 forbids `fetch`). A current `npm run build` produces **1.20 MB** (304 KB
+gzipped), roughly a quarter of it that one catalog.
+
+### 1.8 The part model is fastener-shaped — the blocker for non-fastener parts
+
+This is the largest piece of work and it is **structural**, not cosmetic. `headType` is
+the de-facto primary key of the entire part model; `partType` is *derived from it*
+(`typeForHeadType()`), never stored. A spring or an o-ring has no head, no thread and no
+drive, so it falls through every one of these:
+
+| Layer | Fastener assumption | What an o-ring does today |
+|---|---|---|
+| `dmConstants.js TYPE_DEFS` | types are defined *as sets of `headTypes`* | cannot be expressed at all |
+| `dmPanels.js:836-1010` | cascade hard-coded Type→Variant→Thread→Head→Drive→Length, each step an `if (!s.x) return` | cascade dead-ends at Thread |
+| `dbFilter()` | fixed keys `{headTypes, thread, head, drive, length}` | no axis for ID × cross-section |
+| `densities.js getDensity(thread, headType, length)` | signature *is* the fastener model | `OrderList.js:72` passes `part.thread \|\| 'M3'`, `part.headType \|\| 'socket'` — **an o-ring is silently priced as an M3 socket screw** |
+| `fastenerDims.js d(thread)` | `THREAD_D` lookup, M2–M10 | unknown → silently 3 mm |
+| `fastenerSvg.js computeMmPerUnit` + `fastenerShapes.js` dispatch | `switch (headType)` | falls back to "generic screw" drawing |
+| `LabelSheet.js:302` | `if (part.headType && !disableImage)` gates the whole icon block; `(ht === 'nut' \|\| ht === 'washer')` hard-codes top-vs-side layout | no image, ever |
+| **Three** description builders — `dmHelpers.js buildPartDescription()`, `lsHelpers.js formatDesc()`, and `BinLocationPoster.js` inline (twice, lines 177 and 450) | each independently switches on `thread`/`headType`/`length` | all three emit empty or nonsense text |
+
+So supporting springs and o-rings is not "add a few enum values" — it requires promoting
+`partType` to a first-class registry that **owns** its dimensions, description, density
+model and silhouette, and making the assigner cascade data-driven. That is Phases 1–2
+below, and it is worth doing regardless: it also collapses the four-way `headType` drift
+in §1.5 and the three duplicate description builders.
 
 ---
 
 ## 2. Target design
 
-### 2.1 One folder per catalog
+### 2.1 Part type modules — `src/data/partTypes/`
+
+One module per kind of part. It is the single place that knows how that part behaves.
+
+```
+src/data/partTypes/
+├── index.js        # registry: PART_TYPES, getPartType(), resolvePartType(part)
+├── _fields.js      # shared dimension-field defs (thread, length, drive, outerD, …)
+├── screw.js  nut.js  washer.js  standoff.js  setScrew.js  insert.js  pin.js  pressNut.js
+└── oring.js  spring.js  spacer.js            # ← new in Phase 6
+```
+
+```js
+// src/data/partTypes/oring.js
+export default {
+  id:    'o-ring',
+  label: 'O-Ring',
+
+  // Assigner cascade, in order. Each name is a flat field on the catalog entry.
+  cascade: ['variant', 'innerD', 'crossSection'],
+
+  fields: {
+    innerD:       { label: 'Inner Ø',     unit: 'mm', sort: 'numeric' },
+    crossSection: { label: 'Cross-section',    unit: 'mm', sort: 'numeric' },
+  },
+
+  variants: [
+    { value: 'oring-nbr70', label: 'NBR 70 Shore A' },
+    { value: 'oring-fkm',   label: 'FKM (Viton)' },
+  ],
+
+  // The ONE description builder for this type (replaces three switch statements)
+  describe: e => [`Ø${e.innerD}×${e.crossSection}`, e.material].filter(Boolean).join(' '),
+
+  // Effective packed volume per piece, mm³ → pieces/ml. Torus + tangle penalty.
+  volumeMM3: e => {
+    const R = (e.innerD + e.crossSection) / 2, r = e.crossSection / 2
+    return 2 * Math.PI ** 2 * R * r ** 2 * 3.0
+  },
+
+  // null → no silhouette; labels omit the image block cleanly
+  svg: { top: topORing, side: sideORing, layout: 'top-first' },
+}
+```
+
+Existing fastener types wrap the code already in `densities.js` / `fastenerShapes.js` —
+Phase 1 is a pure move, not a rewrite.
+
+**Dimension fields stay flat and top-level** on the entry (`thread`, `length`, `innerD`,
+`wireD` …) rather than moving into a nested `dims` bag. The *set* of fields is declared
+per type, but the storage shape is unchanged — so existing data, `fastenerSvg.js` and
+`CONFIG_SCHEMA.md` need no migration, and configs stay readable when hand-edited.
+
+### 2.2 Catalogs — `src/data/catalogs/`
 
 ```
 src/data/catalogs/
-├── index.js              # THE registry — the only shared file a contributor edits
-├── schema.js             # vocabularies + validateCatalog()
+├── index.js              # THE registry — the only shared file a catalog contributor edits
 ├── bossard/
-│   ├── meta.js           # identity, labels, barcode format, source & licence
-│   └── parts.json        # normalized entries (moved from src/data/bossard-db.json)
+│   ├── meta.js
+│   └── parts.json        # moved from src/data/bossard-db.json
 └── <new-supplier>/
-    ├── meta.js
-    └── parts.json
 ```
 
-`index.js` uses **static** imports only (ADR-003: no dynamic `import()` in prod):
+Static imports only (ADR-003 forbids dynamic `import()` in prod):
 
 ```js
 import bossardMeta  from './bossard/meta.js'
 import bossardParts from './bossard/parts.json'
 
-export const CATALOGS = {
-  bossard: { ...bossardMeta, parts: bossardParts },
-}
-
+export const CATALOGS = { bossard: { ...bossardMeta, parts: bossardParts } }
 export const DEFAULT_CATALOG = 'bossard'
 export function getCatalog(id) { return CATALOGS[id] ?? CATALOGS[DEFAULT_CATALOG] }
 export function allParts() {
@@ -148,89 +219,79 @@ export function allParts() {
 }
 ```
 
-Documented in the file header the way `cabinetTypes.js` documents cabinet types —
-that file is the house style for this kind of extension point and should be matched.
-
-### 2.2 `meta.js` — per-catalog identity
-
 ```js
+// src/data/catalogs/bossard/meta.js
 export default {
-  id:          'bossard',            // stable key, stored in configs — never change once merged
+  id:          'bossard',          // stable key, stored in configs — never change once merged
   brand:       'Bossard',
-  description: 'Bossard AG fastener catalog (BN norms)',
-  skuLabel:    'Bossard PN',         // column header in OrderList / poster / label sidebar
-  refLabel:    'BN',                 // label for catalogRef
-  barcode:     'CODE128',            // or null → suppress barcode for this supplier
-  productUrl:  sku => `https://www.bossard.com/…/${sku}`,   // optional, for future QR use
+  skuLabel:    'Bossard PN',       // column header in OrderList / poster / label sidebar
+  refLabel:    'BN',               // label for catalogRef
+  barcode:     'CODE128',          // or null → suppress barcode for this supplier
+  productUrl:  sku => `https://www.bossard.com/…/${sku}`,
   source:      { retrieved: '2025-03-11', note: 'Parsed from public BN datasheets' },
   licence:     'Factual dimensional data only; no PDFs redistributed.',
 }
 ```
 
-`skuLabel` alone removes the hard-coded string `'Bossard PN'` from `OrderList.js:141` and
-the `BN (barcode)` label from two sidebars.
+`skuLabel` alone removes the hard-coded `'Bossard PN'` from `OrderList.js:141` and the
+`BN (barcode)` labels from two sidebars.
 
 ### 2.3 Normalized entry schema (`doc/CATALOG_SCHEMA.md`)
 
-Supplier-neutral, with every discriminator the renderers need stated **explicitly**
-instead of inferred from prose:
-
 ```json
 {
-  "sku":         "1386840",
-  "catalogRef":  "BN 1052",
-  "title":       "Threaded inserts for heat/ultrasonic installation",
-  "norms":       ["DIN 912"],
+  "sku":        "1386840",
+  "catalogRef": "BN 1052",
+  "title":      "Threaded inserts for heat/ultrasonic installation",
+  "norms":      ["DIN 912"],
 
-  "partType":    "screw",
-  "headType":    "socket",
-  "variant":     "washer-large",
+  "partType":   "screw",
+  "variant":    "washer-large",
 
-  "thread":      "M3",
-  "length":      8,
-  "drive":       "Hex",
-  "material":    "Steel",
+  "headType":   "socket",
+  "thread":     "M3",
+  "length":     8,
+  "drive":      "Hex",
+
+  "material":      "Steel",
   "materialGrade": "8.8",
-
   "shape": { "nutShape": "square", "locking": "nylon", "standoffEnds": "mf" }
 }
 ```
 
-Changes from today's entries: `articleNumber` → `sku`, `bossardNorm` → `catalogRef`,
-plus three new explicit fields — `partType` (was inferred by `typeForHeadType()`),
-`variant` (was inferred from BN norms), and `shape` (was sniffed from German titles).
-`supplier` is injected by the registry, never stored in the file.
-
-Vocabularies live in `schema.js` as the **single** source of truth, re-exported to
-`dmConstants.js`/`densities.js`/`fastenerShapes.js` so the four-way drift in §1.5 becomes
-structurally impossible.
+Changes from today: `articleNumber` → `sku`, `bossardNorm` → `catalogRef`, plus
+`partType` (was *inferred*), `variant` (was inferred from BN norms) and `shape` (was
+sniffed from German titles) now **explicit**. `supplier` is injected by the registry,
+never stored in the file. Which dimension fields are required is declared by the part
+type and enforced by the validator.
 
 ### 2.4 Part record written into user configs
 
-`dbEntryToPart()` gains supplier-neutral identity and keeps a legacy alias:
-
 ```js
 {
-  supplier: 'bossard',      // NEW
-  sku:      '1386840',      // NEW
+  supplier:   'bossard',    // NEW
+  sku:        '1386840',    // NEW
   catalogRef: 'BN 1052',    // NEW (replaces bossardNorm)
-  bossardPN: '1386840',     // DEPRECATED alias, still written for one release
+  partType:   'screw',      // NEW — stored, no longer inferred
+  bossardPN:  '1386840',    // DEPRECATED alias, still written for one release
   …
 }
 ```
 
-Read path everywhere goes through one helper:
+One read helper handles legacy configs, as with legacy `cabinetType` (ADR-007):
 
 ```js
 // utils/partIdentity.js
 export function partIdentity(part) {
-  if (part?.sku) return { supplier: part.supplier || DEFAULT_CATALOG, sku: part.sku }
-  if (part?.bossardPN) return { supplier: 'bossard', sku: part.bossardPN }   // legacy configs
+  if (part?.sku)       return { supplier: part.supplier || DEFAULT_CATALOG, sku: part.sku }
+  if (part?.bossardPN) return { supplier: 'bossard', sku: part.bossardPN }   // legacy
   return null
 }
+// partTypes/index.js
+export function resolvePartType(part) {
+  return part?.partType ?? typeForHeadType(part?.headType) ?? 'screw'
+}
 ```
-
-Existing config files keep working untouched, as with legacy `cabinetType` (ADR-007).
 
 ---
 
@@ -242,93 +303,126 @@ Each phase is independently mergeable and leaves the app working.
 
 | # | Task | Files |
 |---|---|---|
-| 0.1 | Write `doc/CATALOG_SCHEMA.md` — field reference, vocabularies, worked example | new |
-| 0.2 | `src/data/catalogs/schema.js` — export `PART_TYPES`, `HEAD_TYPES`, `DRIVES`, `THREADS`, `VARIANTS`, `SHAPE_FLAGS` + `validateCatalog(catalog)` returning structured errors | new |
-| 0.3 | `tools/validate-catalogs.mjs` — run the validator over every registered catalog; non-zero exit on error. Checks: required fields; vocabulary membership; `thread` present in `THREAD_D` **and** density table; duplicate `sku` within a catalog; `length` present for length-bearing types; `variant` set where `VARIANT_DEFS` covers that type; warn on entries whose `headType` has no shape renderer | new |
-| 0.4 | `npm run validate` + `npm test` wired to it; `tools/check-bundle-size.mjs` fails over a stated `dist/index.html` budget (propose **4 MB**; measured baseline today is 1.20 MB) | `package.json` |
+| 0.1 | `doc/CATALOG_SCHEMA.md` — field reference, vocabularies, worked example, and how a part type declares its required fields | new |
+| 0.2 | `validateCatalog()` — required fields; vocabulary membership; **per-part-type required dimensions**; duplicate `sku` within a catalog; `thread` metric-only and present in `THREAD_D` + density table; `variant` set where the type declares variants; warn where a type's silhouette needs a `shape` discriminator that is absent | `src/data/catalogs/schema.js` |
+| 0.3 | `tools/validate-catalogs.mjs` — run it over every registered catalog, non-zero exit, message names catalog + sku + field | new |
+| 0.4 | `npm run validate` / `npm test`; `tools/check-bundle-size.mjs` fails over **4 MB** for `dist/index.html` (baseline 1.20 MB) | `package.json` |
 | 0.5 | `.github/workflows/ci.yml` — on `pull_request`: `npm ci && npm run validate && npm run build && npm run check:size` | new |
 
-Phase 0 is what actually makes contribution safe — a contributor gets a red X with a
-precise message instead of a silently-wrong silhouette.
+This is what makes contribution safe: a red X with a precise message instead of a
+silently-wrong silhouette or a mispriced order line.
 
-### Phase 1 — Registry and de-Bossard-ified assigner
-
-| # | Task | Files |
-|---|---|---|
-| 1.1 | Move `src/data/bossard-db.json` → `src/data/catalogs/bossard/parts.json`; one-off migration script rewrites `articleNumber`→`sku`, `bossardNorm`→`catalogRef`, and back-fills `partType` / `variant` / `shape` from the existing BN mappings in `dmConstants.js` + `fastenerDims.js` | `tools/migrate-bossard.mjs` (one-shot, then deleted) |
-| 1.2 | Add `bossard/meta.js` and `catalogs/index.js` | new |
-| 1.3 | `dbFilter()` reads `allParts()`; add a `supplier` filter key; rename `bossardNorms` → `catalogRefs`; add `variants` | `dmHelpers.js` |
-| 1.4 | Replace the three `import bossardDb …` with registry lookups; identity lookups become `findBySku(supplier, sku)` | `dmHelpers.js`, `dmPanels.js`, `dmKeybinds.js` |
-| 1.5 | `variantForEntry()` reads `entry.variant` directly; `VARIANT_DEFS` loses its `norms` arrays and becomes label metadata only | `dmHelpers.js`, `dmConstants.js` |
-| 1.6 | `typeForHeadType()` becomes a fallback — prefer explicit `entry.partType` | `dmHelpers.js` |
-
-### Phase 2 — Supplier-neutral part records
+### Phase 1 — Part type registry (pure refactor, no behaviour change)
 
 | # | Task | Files |
 |---|---|---|
-| 2.1 | `utils/partIdentity.js` + `dbEntryToPart()` emits `supplier`/`sku`/`catalogRef` (+ deprecated `bossardPN`) | `dmHelpers.js`, new util |
-| 2.2 | Barcode + PN display read `sku` via `partIdentity()`, labelled from `meta.skuLabel`; honour `meta.barcode === null` | `LabelSheet.js`, `lsSidebar.js`, `dmPanels.js`, `BinLocationPoster.js` |
-| 2.3 | OrderList: column header and CSV header from `meta.skuLabel`; add a `Supplier` column; **group/split CSV export per supplier** (real-world order lists go to one vendor each) | `OrderList.js` |
-| 2.4 | Update `doc/CONFIG_SCHEMA.md` — document `supplier`/`sku`/`catalogRef`, mark `bossardPN` deprecated-but-honoured | `doc/CONFIG_SCHEMA.md` |
+| 1.1 | Create `src/data/partTypes/` with one module per existing fastener type; move `TYPE_DEFS`/`HEAD_LABELS` labels, the `boundingVolMM3` cases, and the `makeTopView`/`makeSideView` dispatch entries into them | new; `dmConstants.js`, `densities.js`, `fastenerShapes.js` |
+| 1.2 | Consolidate the **three** description builders into each type's `describe()`; `buildPartDescription`, `formatDesc` and the two `BinLocationPoster` inline builders all delegate | `dmHelpers.js`, `lsHelpers.js`, `BinLocationPoster.js` |
+| 1.3 | `getDensity(part)` replaces `getDensity(thread, headType, length)`; dispatches to `type.volumeMM3()`, generic-cylinder fallback retained | `densities.js`, `OrderList.js:72` |
+| 1.4 | Silhouette dispatch routes through `type.svg`; `LabelSheet.js:302` gates on `type.svg != null` instead of `part.headType`, and reads `layout` instead of hard-coding `ht === 'nut' \|\| ht === 'washer'` | `fastenerShapes.js`, `fastenerSvg.js`, `LabelSheet.js` |
+| 1.5 | Golden test: assert description, density and SVG output are byte-identical to pre-refactor for a fixture of ~30 representative Bossard parts | new `test/` |
 
-### Phase 3 — Remove prose sniffing from geometry
+1.5 is what makes this refactor safe to merge — it is the only thing standing between a
+registry refactor and silently changing every existing user's order quantities.
 
-| # | Task | Files |
-|---|---|---|
-| 3.1 | `washerDims()` switches on `part.variant` (`washer-std`/`washer-large`/`washer-socket`); BN literals kept only as a legacy fallback branch | `fastenerDims.js` |
-| 3.2 | `isSquareNut()` → `part.shape?.nutShape === 'square'`; `isMFStandoff()` → `part.shape?.standoffEnds === 'mf'`; both fall back to the current sniffing when `shape` is absent (legacy configs) | `fastenerDims.js` |
-| 3.3 | Nyloc detection → `part.shape?.locking === 'nylon'`, same fallback | `fastenerShapes.js` |
-| 3.4 | Validator warns when a `washer`/`nut`/`standoff` entry omits the discriminator its renderer needs | `schema.js` |
-
-### Phase 4 — Multi-supplier UX (only once >1 catalog exists)
+### Phase 2 — Data-driven assigner cascade (still fasteners only)
 
 | # | Task | Files |
 |---|---|---|
-| 4.1 | Supplier step in the assigner cascade — auto-skipped when only one catalog is registered, so today's flow is unchanged | `dmPanels.js` |
-| 4.2 | Preferred-supplier setting persisted in state (`state.preferences.supplier`) to keep dropdowns short | `state.js`, `DataManager.js` |
-| 4.3 | Duplicate-length cycling (`dmKeybinds.js:360`) stays within the part's own supplier | `dmKeybinds.js` |
+| 2.1 | `dbFilter()` takes an open `{partType, supplier, ...fieldValues}` map instead of fixed fastener keys | `dmHelpers.js` |
+| 2.2 | `renderPartAssigner()` (`dmPanels.js:789-1060`) becomes a loop over `type.cascade`, preserving today's behaviours: auto-resolve when one option, read-only info row, early return when unresolved | `dmPanels.js` |
+| 2.3 | Per-field sorting from `fields[].sort` replaces `sortThreads()`'s `parseFloat(thread.replace('M',''))` | `dmHelpers.js` |
+| 2.4 | Duplicate-length cycling (`dmKeybinds.js:360`) generalises to "advance the type's last numeric cascade field" | `dmKeybinds.js` |
 
-### Phase 5 — Contributor tooling and docs
+After Phase 2 the app no longer assumes any part has a thread, a head or a drive — but
+nothing user-visible has changed yet.
+
+### Phase 3 — Catalog registry
 
 | # | Task | Files |
 |---|---|---|
-| 5.1 | `tools/` restructure: `tools/importers/bossard/parse.py` (today's script, output path parameterised) + `tools/importers/TEMPLATE.md` describing the contract: *any* language, *any* source, output must pass `npm run validate` | `tools/` |
-| 5.2 | `tools/new-catalog.mjs <id> <Brand>` scaffolds the folder, `meta.js`, an empty `parts.json`, and prints the registry line to paste | new |
-| 5.3 | `CONTRIBUTING.md` at repo root: the seven-step add-a-catalog recipe, the "adding a new head type touches 4 files" checklist, licensing rules (no redistributing supplier PDFs — extend the existing `tools/README.md` stance), and the PII/public-repo rules from `CLAUDE.md` | new |
-| 5.4 | ADR-010 in `doc/DECISIONS.md`; supersede ADR-006/ADR-008 notes; close **OQ-009** (catalog freshness) with the per-importer answer | `doc/DECISIONS.md` |
-| 5.5 | Refresh `doc/ARCHITECTURE.md` dependency graph + `CLAUDE.md` project structure (both are already stale — they predate `views/drawerMap/*`, `StockOrder`, `BinModels`, `DataManager`) | `doc/ARCHITECTURE.md`, `CLAUDE.md` |
+| 3.1 | Move `bossard-db.json` → `catalogs/bossard/parts.json`; one-shot migration rewrites `articleNumber`→`sku`, `bossardNorm`→`catalogRef`, back-fills `partType`/`variant`/`shape` from the existing BN mappings | `tools/migrate-bossard.mjs` (deleted after use) |
+| 3.2 | Add `bossard/meta.js` + `catalogs/index.js` | new |
+| 3.3 | Replace the three `import bossardDb …` with registry lookups; identity lookups become `findBySku(supplier, sku)` | `dmHelpers.js`, `dmPanels.js`, `dmKeybinds.js` |
+| 3.4 | `variantForEntry()` reads `entry.variant`; `VARIANT_DEFS` `norms` arrays deleted (variants now live on the part type) | `dmHelpers.js`, `dmConstants.js` |
+
+### Phase 4 — Supplier-neutral part records
+
+| # | Task | Files |
+|---|---|---|
+| 4.1 | `utils/partIdentity.js`; `dbEntryToPart()` emits `supplier`/`sku`/`catalogRef`/`partType` (+ deprecated `bossardPN`) | `dmHelpers.js`, new util |
+| 4.2 | Barcode + PN display read `sku` via `partIdentity()`, labelled from `meta.skuLabel`; honour `meta.barcode === null` | `LabelSheet.js`, `lsSidebar.js`, `dmPanels.js`, `BinLocationPoster.js` |
+| 4.3 | OrderList: headers from `meta.skuLabel`, add a `Supplier` column, **split CSV export per supplier** (order lists go to one vendor each) | `OrderList.js` |
+| 4.4 | Update `doc/CONFIG_SCHEMA.md` — document `supplier`/`sku`/`catalogRef`/`partType`, mark `bossardPN` deprecated-but-honoured | `doc/CONFIG_SCHEMA.md` |
+
+### Phase 5 — Remove prose sniffing from geometry
+
+| # | Task | Files |
+|---|---|---|
+| 5.1 | `washerDims()` switches on `part.variant`; BN literals kept only as a legacy fallback | `fastenerDims.js` |
+| 5.2 | `isSquareNut()` → `shape.nutShape === 'square'`; `isMFStandoff()` → `shape.standoffEnds === 'mf'`; nyloc → `shape.locking === 'nylon'` (all three with the current sniffing as legacy fallback) | `fastenerDims.js`, `fastenerShapes.js`, `lsHelpers.js` |
+
+### Phase 6 — Reference non-fastener part types
+
+Proves the seam. Each ships as one module + validator coverage + a golden test.
+
+| # | Type | Cascade | Volume model (starting values, to be calibrated) |
+|---|---|---|---|
+| 6.1 | **o-ring** | variant (NBR/FKM/EPDM) → innerD → crossSection | torus `2π²Rr²`, R=(ID+CS)/2, r=CS/2, tangle factor **3.0** |
+| 6.2 | **spring** (compression) | variant → outerD → freeLength → wireD | envelope cylinder `π(OD/2)²·L`, tangle factor **2.2** |
+| 6.3 | **spacer** (unthreaded) | variant → outerD → innerD → length | annular cylinder `π((OD/2)²−(ID/2)²)·L`, factor **1.4** (matches standoff) |
+| 6.4 | Simple silhouettes: o-ring = annulus top + rounded side; spring = coil side; spacer = tube. Any type may set `svg: null` and labels degrade cleanly to text-only | `fastenerShapes.js` or a new `shapes/` dir |
+| 6.5 | Rename `utils/fastenerSvg.js` → `utils/partSvg.js` (and `fastenerDims` → `partDims`) once it is no longer fastener-only | renames |
+
+The packing factors are estimates. Document them as such in each module, the way
+`densities.js` already documents its calibration, and note that they are the one number a
+contributor should expect to tune against a real bin.
+
+### Phase 7 — Multi-supplier UX (only once >1 catalog exists)
+
+| # | Task | Files |
+|---|---|---|
+| 7.1 | Supplier step in the cascade — auto-skipped when only one catalog is registered, so today's flow is unchanged | `dmPanels.js` |
+| 7.2 | Preferred-supplier setting in `state.preferences.supplier` to keep dropdowns short | `state.js`, `DataManager.js` |
+
+### Phase 8 — Contributor tooling and docs
+
+| # | Task | Files |
+|---|---|---|
+| 8.1 | `tools/importers/bossard/parse.py` (today's script, output path parameterised) + `tools/importers/TEMPLATE.md`: any language, any source, output must pass `npm run validate` | `tools/` |
+| 8.2 | `tools/new-catalog.mjs <id> <Brand>` and `tools/new-part-type.mjs <id> <Label>` scaffold the folder/module and print the registry line to paste | new |
+| 8.3 | `CONTRIBUTING.md`: the add-a-catalog recipe, the add-a-part-type recipe, licensing rules (no redistributing supplier PDFs — extends `tools/README.md`), and the PII/public-repo rules from `CLAUDE.md` | new |
+| 8.4 | ADR-010 (catalog registry) and ADR-011 (part type registry) in `doc/DECISIONS.md`; supersede ADR-006/008; close **OQ-009** | `doc/DECISIONS.md` |
+| 8.5 | Refresh `doc/ARCHITECTURE.md` dependency graph + `CLAUDE.md` project structure — both are stale already (they predate `views/drawerMap/*`, `StockOrder`, `BinModels`, `DataManager`) | `doc/ARCHITECTURE.md`, `CLAUDE.md` |
 
 ---
 
-## 4. Decisions to make before Phase 1
+## 4. Scope decisions (settled)
 
-1. **Metric only?** `sortThreads()` (`dmHelpers.js:33`) parses `parseFloat(thread.replace('M','').replace('Ø',''))`
-   — imperial threads (`#4-40`, `1/4-20`) sort as `NaN`, and `THREAD_D` + the density table have
-   no imperial keys. Recommendation: **declare metric-only for v1**, have the validator reject
-   non-metric threads with a clear message, and track imperial as its own follow-up (it needs a
-   thread-spec table, not just a catalog).
-2. **Bundle budget.** Propose 4 MB for `dist/index.html` (baseline 1.20 MB, i.e. room for
-   roughly nine more Bossard-sized catalogs), enforced in CI, with `parts.json`
-   minified at build (drop `indent=2`, ~30 % saving) and optional field-stripping if it binds.
-   If catalogs ever exceed it, the fix is a build-time opt-in list, not `fetch` (ADR-003 stands).
-3. **Do we keep `bossardPN` forever?** Recommendation: write it for one release, read it
-   indefinitely, drop writing it after that — same graceful-legacy posture as `cabinetType`.
-4. **Non-fastener catalogs?** (o-rings, bearings, electronic components). The schema above is
-   fastener-shaped: `thread`/`headType`/`drive`. Recommendation: **out of scope for v1**, but
-   `partType` is the seam that would later carry it — a new `partType` brings its own density
-   model and shape renderer. Say so explicitly in `CATALOG_SCHEMA.md` so contributors don't
-   design around a promise we haven't made.
+1. **Metric only, for threaded parts.** `sortThreads()` NaNs on `1/4-20` and `THREAD_D` /
+   the density table have no imperial keys. The validator **rejects non-metric threads**
+   with a clear message. Note this constrains the `thread` field specifically — a
+   non-fastener type is free to define inch-valued dimensions if a contributor needs them,
+   since those go through the type's own `fields` and sort functions.
+2. **Bundle budget 4 MB**, enforced in CI from Phase 0 (baseline 1.20 MB — room for roughly
+   nine more Bossard-sized catalogs). If it ever binds, the answer is minifying `parts.json`
+   and a build-time opt-in list, not `fetch` — ADR-003 stands.
+3. **`bossardPN`**: written for one release, read indefinitely, writing dropped after that —
+   the same graceful-legacy posture as `cabinetType`.
+4. **Non-fastener parts are in scope for v1.** This is why Phases 1–2 (part type registry +
+   data-driven cascade) exist and why they come before the catalog work: `partType` must be
+   a stored, first-class thing that owns its own dimensions, description, density and
+   drawing before springs or o-rings can exist at all. Phase 6 ships o-ring, spring and
+   spacer as reference implementations.
 
 ## 5. Definition of done
 
-A contributor can:
+**Adding a catalog**: run `node tools/new-catalog.mjs wurth Würth`, produce `parts.json`
+with your own converter, run `npm run validate` for precise per-SKU errors, paste one line
+into `catalogs/index.js`, open a PR that CI validates + builds + size-checks. The parts then
+appear in the assigner, get correct silhouettes, correct density-based quantities, correctly
+labelled barcodes and their own CSV order list — **without touching a view file**.
 
-1. run `node tools/new-catalog.mjs wurth Würth`,
-2. produce `parts.json` with their own converter,
-3. run `npm run validate` and get precise, line-referenced errors,
-4. paste one line into `catalogs/index.js`,
-5. open a PR where CI validates the data, builds, and checks bundle size,
-
-and their parts then appear in the assigner cascade, get correct silhouettes, correct
-density-based order quantities, correctly labelled barcodes, and their own CSV order
-list — **without touching a single view file**.
+**Adding a part type**: run `node tools/new-part-type.mjs bearing Bearing`, fill in
+`fields`, `cascade`, `describe`, `volumeMM3` and optionally `svg`, register it, and every
+view picks it up — **also without touching a view file**.
