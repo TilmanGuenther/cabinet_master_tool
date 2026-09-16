@@ -7,7 +7,7 @@
  * src/data/partTypes/, which composes these into its `svg` descriptor.
  */
 
-import { d, f, screwDims, washerDims, isSquareNut, isMFStandoff } from './fastenerDims.js'
+import { d, f, screwDims, washerDims, isSquareNut, isMFStandoff, isNylocNut } from './fastenerDims.js'
 
 // ── SVG layout constants (mirrored from fastenerSvg.js) ───────────────────────
 
@@ -249,10 +249,7 @@ export function sideNut(part, rx, ry, rw, rh) {
   const bodyH_mm = square ? nomD * 0.60 : nomD * 0.80
   const holeW_mm = nomD * 1.05
 
-  const nyloc = !square && (
-    part.description?.toLowerCase().includes('nyloc') ||
-    part.standard?.includes('985')
-  )
+  const nyloc = !square && isNylocNut(part)
 
   const totalH_mm = bodyH_mm * (nyloc ? 1.50 : 1.0)
   const scale = Math.min((rh * 0.72) / totalH_mm, (rw * 0.72) / bodyW_mm)

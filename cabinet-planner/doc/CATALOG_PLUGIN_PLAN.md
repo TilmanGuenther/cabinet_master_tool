@@ -497,12 +497,31 @@ changed only what was intended: of the eight snapshotted outputs, **only `part` 
 descriptions, densities and all four silhouettes are untouched. Nine new tests cover the
 identity contract, including the legacy read path and a catalog with no barcode format.
 
-### Phase 5 — Remove prose sniffing from geometry
+### Phase 5 — Remove prose sniffing from geometry — **DONE**
 
 | # | Task | Files |
 |---|---|---|
 | 5.1 | `washerDims()` switches on `part.variant`; BN literals kept only as a legacy fallback | `fastenerDims.js` |
 | 5.2 | `isSquareNut()` → `shape.nutShape === 'square'`; `isMFStandoff()` → `shape.standoffEnds === 'mf'`; nyloc → `shape.locking === 'nylon'` (all three with the current sniffing as legacy fallback) | `fastenerDims.js`, `fastenerShapes.js`, `lsHelpers.js` |
+
+**Shipped as**: `washerDims()` switches on `variant`; `isSquareNut()`, `isMFStandoff()` and
+a new `isNylocNut()` read `part.shape`. The nyloc test was duplicated in three places
+(`nut.js` twice and `fastenerShapes.sideNut`) and is now one function. The German
+keyword matching and BN norm literals survive only as a fallback for part records written
+before Phase 4 stored those fields.
+
+**Checked before changing anything.** The migration derived `shape.locking` from a
+different condition than the renderer sniffed (`catalogRef === 'BN 161'` or a title
+containing "nyloc", versus a description containing "nyloc" or a standard containing
+"985"), so the two could have disagreed. Comparing explicit fields against the legacy
+guess across all 923 entries gave **zero divergences** on every discriminator, which is
+what made the switch provably safe; both snapshots are byte-identical.
+
+Three new tests cover the contract: the fallback still reproduces the old answer on the
+whole catalog, an English-language catalog with explicit `shape` is now drawn correctly
+(a square nut stays square, a nylon insert nut stays tall, an M/F standoff keeps its
+stud), and one that omits `shape` still gets the old wrong answer — which is why the
+validator warns about it rather than staying silent.
 
 ### Phase 6 — Reference non-fastener part types
 

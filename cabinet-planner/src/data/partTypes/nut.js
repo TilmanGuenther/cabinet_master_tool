@@ -9,7 +9,7 @@ import { nominalDiameter, hexArea } from './_shared.js'
 import {
   topHex, topSquareNut, sideNut, R_X, R_Y, R_W, R_H,
 } from '../../utils/fastenerShapes.js'
-import { d, f, isSquareNut } from '../../utils/fastenerDims.js'
+import { d, f, isSquareNut, isNylocNut } from '../../utils/fastenerDims.js'
 
 export default {
   id: 'nut',
@@ -30,9 +30,7 @@ export default {
   lengthIndependent: true,
 
   shortLabel(part) {
-    const nyloc = part.description?.toLowerCase().includes('nyloc') ||
-                  part.standard?.includes('985')
-    return `${part.thread || ''} ${nyloc ? 'Nyloc Nut' : 'Hex Nut'}`
+    return `${part.thread || ''} ${isNylocNut(part) ? 'Nyloc Nut' : 'Hex Nut'}`
   },
 
   /** Hex nut: across-flats ~1.74d, height ~0.8d. Geometric fallback only. */
@@ -53,8 +51,7 @@ export default {
     mmPerUnit(part) {
       const nomD  = d(part.thread)
       const sq    = isSquareNut(part)
-      const nyloc = !sq && (part.description?.toLowerCase().includes('nyloc') ||
-                            part.standard?.includes('985'))
+      const nyloc  = !sq && isNylocNut(part)
       const totalH = (sq ? nomD * 0.60 : nomD * 0.80) * (nyloc ? 1.50 : 1.0)
       const bodyW  = sq ? nomD * 2.5 : nomD * 1.75
       const scale  = Math.min((R_H * 0.72) / totalH, (R_W * 0.72) / bodyW)
@@ -71,7 +68,7 @@ export default {
       const bW    = sq ? nomD * 2.5  : nomD * 1.75
       const bH    = sq ? nomD * 0.60 : nomD * 0.80
       const holeW = nomD * 1.05
-      const nyloc = !sq && (part.description?.toLowerCase().includes('nyloc') || part.standard?.includes('985'))
+      const nyloc = !sq && isNylocNut(part)
       W = bW
       H = bH * (nyloc ? 1.50 : 1.0)
       if (sq) {

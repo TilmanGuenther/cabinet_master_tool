@@ -35,21 +35,17 @@ export function screwDims(headType, nomD) {
 }
 
 /**
- * Returns physical proportions for washers based on DIN norm:
- *   BN 715 → DIN 125 (standard): OD=2.25d, ID=1.08d, th=0.20d
- *   BN 729 → DIN 9021 (large):   OD=4.00d, ID=1.12d, th=0.25d
- *   BN 726 → DIN 433 (socket):   OD=2.00d, ID=1.08d, th=0.20d
+ * Physical proportions for a washer, by variant:
+ *   washer-std    DIN 125:  OD=2.25d, ID=1.08d, th=0.20d
+ *   washer-large  DIN 9021: OD=4.00d, ID=1.12d, th=0.25d
+ *   washer-socket DIN 433:  OD=2.00d, ID=1.08d, th=0.20d
  */
 export function washerDims(part) {
   const nomD = d(part.thread)
-  const norm = part.bossardNorm
-  if (norm === 'BN 729') {
-    return { outerD: nomD * 4.00, innerD: nomD * 1.12, thick: nomD * 0.25 }
-  } else if (norm === 'BN 726') {
-    return { outerD: nomD * 2.00, innerD: nomD * 1.08, thick: nomD * 0.20 }
-  } else {
-    // Default: BN 715 / DIN 125 standard washer
-    return { outerD: nomD * 2.25, innerD: nomD * 1.08, thick: nomD * 0.20 }
+  switch (washerVariant(part)) {
+    case 'washer-large':  return { outerD: nomD * 4.00, innerD: nomD * 1.12, thick: nomD * 0.25 }
+    case 'washer-socket': return { outerD: nomD * 2.00, innerD: nomD * 1.08, thick: nomD * 0.20 }
+    default:              return { outerD: nomD * 2.25, innerD: nomD * 1.08, thick: nomD * 0.20 }
   }
 }
 
@@ -57,14 +53,42 @@ export function washerDims(part) {
 
 export function f(n) { return n.toFixed(2) }
 
-// ── Part type helpers ─────────────────────────────────────────────────────────
+// ── Shape discriminators ──────────────────────────────────────────────
+//
+// How a part is drawn depends on facts the catalog now states outright, in
+// `variant` and `shape`. Each of these used to guess from Bossard norm numbers
+// and German title text, which silently mis-drew any catalog in another
+// language: a large washer as a standard one, a square nut as hex, an M/F
+// standoff as F/F.
+//
+// The old guess survives only as a fallback for part records written before
+// those fields existed. Catalogs are expected to state them, and
+// `npm run validate` warns when one does not.
 
-/** True for DIN 562 Vierkantmuttern (square nuts). */
-export function isSquareNut(part) {
-  return part.bossardNorm === 'BN 145' || part.title?.includes('Vierkant')
+function washerVariant(part) {
+  if (part.variant) return part.variant
+  // Legacy: BN 729 = DIN 9021 (large), BN 726 = DIN 433 (socket head).
+  if (part.bossardNorm === 'BN 729') return 'washer-large'
+  if (part.bossardNorm === 'BN 726') return 'washer-socket'
+  return 'washer-std'
 }
 
-/** True for M/F standoffs ("Innen- und Aussengewinde"). */
+/** True for square nuts (DIN 562) rather than hex. */
+export function isSquareNut(part) {
+  if (part.shape?.nutShape) return part.shape.nutShape === 'square'
+  return Boolean(part.bossardNorm === 'BN 145' || part.title?.includes('Vierkant'))
+}
+
+/** True for standoffs with a male stud at one end ("Innen- und Aussengewinde"). */
 export function isMFStandoff(part) {
-  return part.title?.includes('Aussengewinde')
+  if (part.shape?.standoffEnds) return part.shape.standoffEnds === 'mf'
+  return Boolean(part.title?.includes('Aussengewinde'))
+}
+
+/** True for nuts with a nylon insert (DIN 985), which stand taller than plain nuts. */
+export function isNylocNut(part) {
+  if (part.shape?.locking) return part.shape.locking === 'nylon'
+  return Boolean(
+    part.description?.toLowerCase().includes('nyloc') || part.standard?.includes('985'),
+  )
 }
