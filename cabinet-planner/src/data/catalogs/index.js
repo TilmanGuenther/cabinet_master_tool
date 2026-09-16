@@ -23,9 +23,12 @@
 
 import bossardMeta  from './bossard/meta.js'
 import bossardParts from './bossard/parts.json'
+import motedisMeta  from './motedis/meta.js'
+import motedisParts from './motedis/parts.json'
 
 export const CATALOGS = {
   bossard: { ...bossardMeta, parts: bossardParts },
+  motedis: { ...motedisMeta, parts: motedisParts },
 }
 
 /** Used for entries and part records that name no supplier. */

@@ -76,9 +76,14 @@ test('assigning a part writes both the neutral fields and the deprecated aliases
 })
 
 test('every catalog entry produces a part with a resolvable identity', () => {
+  const seen = new Set()
   for (const entry of allParts()) {
     const id = partIdentity(dbEntryToPart(entry))
     assert.ok(id, `${entry.sku} produced a part with no identity`)
-    assert.equal(id.supplier, 'bossard')
+    assert.equal(id.supplier, entry.supplier,
+      `${entry.sku} lost its supplier on assignment`)
+    assert.equal(id.sku, entry.sku)
+    seen.add(id.supplier)
   }
+  assert.ok(seen.size >= 2, 'more than one catalog should be registered by now')
 })

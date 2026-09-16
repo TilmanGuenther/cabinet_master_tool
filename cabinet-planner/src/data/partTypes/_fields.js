@@ -112,6 +112,18 @@ export const FIELDS = {
     format: mm => `${mm} mm`,
     numeric: true,
   },
+  /**
+   * Profile slot width, in mm, for parts that fit an aluminium extrusion slot.
+   * Shown as "Slot 8" rather than "8 mm" because that is how profile systems
+   * are talked about.
+   */
+  slotSize: {
+    label: 'Slot',
+    autoResolve: 'never',
+    sort: 'numeric',
+    format: mm => `Slot ${mm}`,
+    numeric: true,
+  },
   wireD: {
     label: 'Wire Ø',
     autoResolve: 'never',

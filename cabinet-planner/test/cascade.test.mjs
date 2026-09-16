@@ -104,15 +104,25 @@ test('duplicating steps one along the size range', () => {
 })
 
 test('stepping stays inside the part family', () => {
-  // Every entry that steps must keep its thread and head geometry.
+  // Whatever a type steps, everything else about the part must hold: the same
+  // supplier, the same geometry, and one move along the stepped dimension only.
   let stepped = 0
   for (const e of db) {
     const next = nextAlongCascade(e)
     if (!next) continue
     stepped++
-    assert.equal(next.thread, e.thread, `${e.sku} changed thread`)
+    assert.equal(next.supplier, e.supplier, `${e.sku} crossed catalogs`)
     assert.equal(next.headType, e.headType, `${e.sku} changed head type`)
-    assert.ok(next.length > e.length, `${e.sku} did not step up`)
+
+    if (e.length != null && next.length != null) {
+      // Fasteners step length, holding the thread.
+      assert.equal(next.thread, e.thread, `${e.sku} changed thread`)
+      assert.ok(next.length > e.length, `${e.sku} did not step up`)
+    } else if (e.slotSize != null) {
+      // T-slot nuts step the thread, holding the profile slot.
+      assert.equal(next.slotSize, e.slotSize, `${e.sku} changed profile slot`)
+      assert.notEqual(next.thread, e.thread, `${e.sku} did not step thread`)
+    }
   }
   assert.ok(stepped > 500, `expected most of the catalog to step, got ${stepped}`)
 })

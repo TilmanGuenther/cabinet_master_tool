@@ -577,3 +577,55 @@ function clampRatio(ratio) {
   if (!Number.isFinite(ratio)) return 0.4
   return Math.max(0.05, Math.min(0.92, ratio))
 }
+
+// ── T-slot nut ────────────────────────────────────────────────────────────────
+
+/**
+ * T-slot nut from above: the block outline with its threaded bore.
+ *
+ * Drawn to the block's real proportions rather than filling the circle, so a
+ * slot-5 nut reads as visibly stubbier than a slot-8 one.
+ */
+export function topTSlotNut(cx, cy, r, part) {
+  const slot = part.slotSize || 6
+  const ratio = 0.48                    // block width as a fraction of length
+  const w = r * 1.9                     // length across the panel
+  const h = w * ratio
+  const boreR = Math.max((d(part.thread) / (slot * 2.1)) * w * 0.5, 1.4)
+
+  const x = cx - w / 2
+  const y = cy - h / 2
+  return (
+    `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" rx="${f(h * 0.14)}" fill="#111"/>` +
+    `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(boreR)}" fill="white"/>`
+  )
+}
+
+/**
+ * T-slot nut in profile: the stepped shoulder that keys into the extrusion slot,
+ * with the bore shown through.
+ */
+export function sideTSlotNut(part, rx, ry, rw, rh) {
+  const slot = part.slotSize || 6
+  const len = slot * 2.1
+  const hgt = slot * 0.65
+
+  const scale = Math.min((rh * 0.55) / hgt, (rw * 0.82) / len)
+  const W = len * scale
+  const H = Math.max(hgt * scale, 4)
+  const shoulder = H * 0.42              // the narrower upper step
+  const inset = W * 0.16                 // how far the step is set in per side
+
+  const cx = rx + rw / 2
+  const top = ry + (rh - H) / 2
+  const boreW = Math.max(d(part.thread) * scale, 2)
+
+  return (
+    // Lower flange, full length
+    `<rect x="${f(cx - W / 2)}" y="${f(top + shoulder)}" width="${f(W)}" height="${f(H - shoulder)}" fill="#111"/>` +
+    // Upper step, set in on both sides -- what actually sits inside the slot
+    `<rect x="${f(cx - W / 2 + inset)}" y="${f(top)}" width="${f(W - inset * 2)}" height="${f(shoulder)}" fill="#111"/>` +
+    // Threaded bore through the middle
+    `<rect x="${f(cx - boreW / 2)}" y="${f(top)}" width="${f(boreW)}" height="${f(H)}" fill="#aaa"/>`
+  )
+}

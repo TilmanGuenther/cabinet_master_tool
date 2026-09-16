@@ -28,7 +28,7 @@ import { NUMERIC_FIELDS } from '../partTypes/_fields.js'
 /** Part types: what a thing *is*. Primary key of the part model from Phase 1 on. */
 export const PART_TYPES = [
   'screw', 'nut', 'washer', 'standoff', 'set-screw', 'insert', 'pin', 'press-nut',
-  'o-ring', 'spring', 'spacer',
+  'o-ring', 'spring', 'spacer', 't-slot-nut',
 ]
 
 /**
@@ -43,7 +43,7 @@ export const PART_TYPES = [
 export const HEAD_TYPES = [
   'button', 'socket', 'low-socket', 'countersunk', 'pan', 'flat',
   'nut', 'washer', 'standoff', 'set-screw', 'insert', 'pin', 'press-nut',
-  'o-ring', 'spring', 'spacer',
+  'o-ring', 'spring', 'spacer', 't-slot-nut',
 ]
 
 /** Drive types understood by the top-view renderer (partShapes.topScrew). */
@@ -57,6 +57,7 @@ export const VARIANTS = [
   'oring-nbr70', 'oring-fkm', 'oring-epdm',
   'spring-compression', 'spring-extension', 'spring-torsion',
   'spacer-round', 'spacer-hex',
+  'tnut-spring-ball', 'tnut-guided', 'tnut-plain',
 ]
 
 /** Explicit geometry discriminators (replace prose sniffing in Phase 5). */
@@ -117,6 +118,12 @@ export const PART_TYPE_SPECS = {
   spacer: {
     headTypes: ['spacer'], requiredFields: ['outerD', 'innerD', 'length'],
     variants: ['spacer-round', 'spacer-hex'],
+  },
+  // Threaded, but sized by the profile slot it fits rather than by a length.
+  't-slot-nut': {
+    headTypes: ['t-slot-nut'], threadForm: 'metric',
+    requiredFields: ['thread', 'slotSize'],
+    variants: ['tnut-spring-ball', 'tnut-guided', 'tnut-plain'],
   },
 }
 

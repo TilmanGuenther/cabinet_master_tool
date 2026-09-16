@@ -150,7 +150,11 @@ export function nextAlongCascade(entry, extraFilter = {}) {
   const type = resolvePartType(entry)
   const cascade = cascadeFor(type)
 
-  const key = [...cascade].reverse().find(k => getField(k).numeric)
+  // A type may name the dimension to step; otherwise take the last numeric one,
+  // which is `length` for every fastener. `stepField: null` opts out entirely.
+  const key = type && 'stepField' in type
+    ? type.stepField
+    : [...cascade].reverse().find(k => getField(k).numeric)
   if (!key || entry[key] == null) return null
 
   // Hold every other dimension this type distinguishes, so stepping stays
@@ -161,9 +165,12 @@ export function nextAlongCascade(entry, extraFilter = {}) {
     if (entry[field] != null && entry[field] !== '') held[field] = entry[field]
   }
 
+  // Sort with the field's own comparator, so a thread steps M3 -> M4 -> M5
+  // rather than being compared as a string.
+  const cmp = SORTS[getField(key).sort ?? 'none'] ?? SORTS.numeric
   const values = uniq(dbFilter(held).map(e => e[key]))
     .filter(v => v != null)
-    .sort(SORTS.numeric)
+    .sort(cmp)
 
   const at = values.indexOf(entry[key])
   if (at === -1 || at + 1 >= values.length) return null
