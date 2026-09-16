@@ -394,7 +394,7 @@ A part type module is now self-contained: `pin.js` is 62 lines covering its labe
 description, density and every drawing. A type may omit `svg` entirely and labels fall
 back to text — which matters for Phase 6, where an o-ring has no head geometry at all.
 
-### Phase 2 — Data-driven assigner cascade (still fasteners only)
+### Phase 2 — Data-driven assigner cascade (still fasteners only) — **DONE**
 
 | # | Task | Files |
 |---|---|---|
@@ -405,6 +405,33 @@ back to text — which matters for Phase 6, where an o-ring has no head geometry
 
 After Phase 2 the app no longer assumes any part has a thread, a head or a drive — but
 nothing user-visible has changed yet.
+
+**Shipped as**: `src/views/drawerMap/dmCascade.js`, a pure engine that computes which
+questions the assigner asks and what the answers may be; `dmPanels` only renders the
+result. Each part type declares its own `cascade`, and `partTypes/_fields.js` says how a
+field behaves — how it sorts, how it formats, and what happens when only one option is
+left (`never` keeps a dropdown, `info` shows a read-only row, `silent` resolves invisibly).
+A step with no options is skipped, so a pin simply never shows a Drive question.
+
+`dbFilter` now takes an open field map, so a part type can filter on dimensions the
+function has never heard of. `sortThreads` is gone, replaced by the `thread` comparator.
+Duplicating a bin steps along whichever numeric field the type asks about last, rather
+than hardcoding length.
+
+**Verified by construction, not by inspection.** `test/cascade-reference.mjs` is the
+pre-Phase-2 cascade with the DOM stripped out, frozen. The two implementations were
+compared across **all 935 reachable cascade states** — every part type, every combination
+of answers — and agree exactly on steps, options, labels and matching SKUs. The
+generalised duplicate-stepping was checked the same way: all **923 catalog entries** pick
+the same next part as the old inline logic. Both checks are permanent tests, alongside a
+snapshot of the engine's own output that keeps protecting the cascade after the reference
+retires at Phase 3.4.
+
+Two deliberate differences, both unreachable with current data: `nut` and `washer` no
+longer run a Drive step (they have no drives, so it was always skipped), and a head
+geometry with no options now falls through to "No matching parts found" instead of
+rendering nothing. The pre-populate path also now restores `drive` when reopening a bin,
+which the old code omitted.
 
 ### Phase 3 — Catalog registry
 

@@ -13,6 +13,8 @@ export default {
   headTypes: ['insert'],
   headLabels: { insert: 'Threaded Insert' },
 
+  cascade: ['thread', 'length'],
+
   shortLabel(part) {
     const thread = part.thread || ''
     const length = part.length

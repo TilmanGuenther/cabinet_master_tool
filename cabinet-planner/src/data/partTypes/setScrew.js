@@ -13,6 +13,8 @@ export default {
   headTypes: ['set-screw'],
   headLabels: { 'set-screw': 'Set Screw' },
 
+  cascade: ['thread', 'drive', 'length'],
+
   shortLabel(part) {
     const thread = part.thread || ''
     const length = part.length

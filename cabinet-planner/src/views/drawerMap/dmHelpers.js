@@ -14,23 +14,28 @@ export function variantForEntry(entry) {
   return variants.find(v => v.norms.includes(entry.bossardNorm)) || null
 }
 
-export function dbFilter({ headTypes, thread, head, drive, length, bossardNorms } = {}) {
-  return bossardDb.filter(p => {
-    if (headTypes    && !headTypes.includes(p.headType))      return false
-    if (thread       && p.thread   !== thread)                return false
-    if (head         && p.headType !== head)                  return false
-    if (drive        && p.drive    !== drive)                 return false
-    if (length != null && p.length !== length)                return false
-    if (bossardNorms && !bossardNorms.includes(p.bossardNorm)) return false
+/**
+ * Query the catalog.
+ *
+ * `headTypes` and `bossardNorms` are membership tests; every other key is an
+ * exact match against the entry field of the same name, so a part type can
+ * filter on dimensions this function has never heard of. Empty-string and null
+ * values are ignored rather than matched, since catalog entries use '' for
+ * "not applicable".
+ */
+export function dbFilter({ headTypes, bossardNorms, ...fields } = {}) {
+  return bossardDb.filter(entry => {
+    if (headTypes    && !headTypes.includes(entry.headType))      return false
+    if (bossardNorms && !bossardNorms.includes(entry.bossardNorm)) return false
+    for (const [key, value] of Object.entries(fields)) {
+      if (value == null || value === '') continue
+      if (entry[key] !== value) return false
+    }
     return true
   })
 }
 
 export function uniq(arr) { return [...new Set(arr)] }
-
-export function sortThreads(threads) {
-  return threads.sort((a, b) => parseFloat(a.replace('M', '').replace('\u00D8', '')) - parseFloat(b.replace('M', '').replace('\u00D8', '')))
-}
 
 export function buildPartDescription(entry) {
   return describePart(entry, variantForEntry(entry)?.label)

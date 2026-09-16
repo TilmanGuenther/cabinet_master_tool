@@ -17,6 +17,15 @@ export default {
   headTypes: ['washer'],
   headLabels: { washer: 'Washer' },
 
+  // Standard, large and socket-head washers differ in outer diameter.
+  cascade: ['variant', 'thread'],
+
+  variants: [
+    { value: 'washer-std',    label: 'Standard Washer' },
+    { value: 'washer-large',  label: 'Large Washer' },
+    { value: 'washer-socket', label: 'Socket Head Washer' },
+  ],
+
   lengthIndependent: true,
 
   shortLabel(part) {

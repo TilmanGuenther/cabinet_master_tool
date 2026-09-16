@@ -13,6 +13,14 @@ export default {
   headTypes: ['standoff'],
   headLabels: { standoff: 'Standoff' },
 
+  // M/F and F/F standoffs are physically different parts.
+  cascade: ['variant', 'thread', 'length'],
+
+  variants: [
+    { value: 'standoff-mf', label: 'Hex Standoff M/F' },
+    { value: 'standoff-ff', label: 'Hex Standoff F/F' },
+  ],
+
   shortLabel(part) {
     const len = part.length ? '×' + part.length : ''
     return `${part.thread || ''}${len} · Standoff`

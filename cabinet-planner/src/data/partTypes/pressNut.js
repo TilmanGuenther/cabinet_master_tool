@@ -18,6 +18,8 @@ export default {
   headTypes: ['press-nut'],
   headLabels: { 'press-nut': 'Press-In Nut' },
 
+  cascade: ['thread'],
+
   lengthIndependent: true,
 
   shortLabel(part) {

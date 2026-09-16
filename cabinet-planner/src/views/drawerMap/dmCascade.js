@@ -1,0 +1,169 @@
+/**
+ * Part assigner cascade engine.
+ *
+ * Pure: it computes which questions to ask and what the answers may be, and
+ * returns a description. Rendering that description is dmPanels' job, which is
+ * what makes the cascade testable without a DOM.
+ *
+ * The sequence of questions comes from the part type's `cascade`, so a type
+ * with entirely different dimensions -- an o-ring asking for inner diameter and
+ * cross-section -- needs no change here.
+ *
+ * At each step the catalog is filtered by everything resolved so far:
+ *   - no options left        the step does not apply and is skipped
+ *   - exactly one option     resolved automatically; whether that shows as a
+ *                            read-only row is the field's `autoResolve`
+ *   - more than one          a dropdown, and the cascade stops until answered
+ */
+
+import { getField, SORTS } from '../../data/partTypes/_fields.js'
+import { getPartType, resolvePartType } from '../../data/partTypes/index.js'
+import { dbFilter, uniq } from './dmHelpers.js'
+
+/**
+ * @param {object}   args
+ * @param {string}   args.typeId      part type id
+ * @param {object}   args.selection   answers so far, keyed by field
+ * @param {Function} [args.toFilter]  (field, value) -> filter fragment. Lets a
+ *                   caller translate a field the catalog does not carry yet;
+ *                   `variant` needs this until entries store it directly.
+ * @returns {{steps: object[], resolved: object, matches: object[], complete: boolean}}
+ */
+export function buildCascade({ typeId, selection = {}, toFilter = defaultToFilter }) {
+  const type = getPartType(typeId)
+  if (!type) return { steps: [], resolved: {}, matches: [], complete: false }
+
+  const base = { headTypes: type.headTypes }
+  const resolved = {}
+  const steps = []
+
+  // A type that never asks about head geometry has exactly one, so it is known
+  // before the first question.
+  if (type.headTypes.length === 1) resolved.headType = type.headTypes[0]
+
+  const filterNow = () => ({ ...base, ...mergeFilters(resolved, toFilter) })
+
+  for (const key of type.cascade ?? []) {
+    const field = getField(key)
+    const options = optionsFor(key, field, type, filterNow(), toFilter)
+
+    if (options.length === 0) continue
+
+    if (options.length === 1 && field.autoResolve !== 'never') {
+      resolved[key] = options[0].value
+      if (field.autoResolve === 'info') {
+        steps.push({ kind: 'info', key, label: field.label, text: options[0].label })
+      }
+      continue
+    }
+
+    const chosen = selection[key] ?? null
+    steps.push({ kind: 'select', key, label: field.label, options, value: chosen })
+    if (chosen == null) {
+      return { steps, resolved, matches: [], complete: false }
+    }
+    resolved[key] = chosen
+  }
+
+  return { steps, resolved, matches: dbFilter(filterNow()), complete: true }
+}
+
+/** Turn resolved answers into catalog filter keys. */
+function mergeFilters(resolved, toFilter) {
+  return Object.entries(resolved).reduce(
+    (acc, [key, value]) => ({ ...acc, ...toFilter(key, value) }),
+    {},
+  )
+}
+
+function defaultToFilter(key, value) {
+  return { [key]: value }
+}
+
+/**
+ * Options for one step, either declared by the part type (variants) or derived
+ * from whatever the catalog still offers.
+ */
+function optionsFor(key, field, type, filter, toFilter) {
+  if (field.fromType) {
+    // Declared options, kept in the type's order, minus any the catalog cannot
+    // currently satisfy.
+    return (type[`${key}s`] ?? [])
+      .filter(opt => dbFilter({ ...filter, ...toFilter(key, opt.value) }).length > 0)
+      .map(opt => ({ value: opt.value, label: opt.label }))
+  }
+
+  let values = uniq(dbFilter(filter).map(entry => entry[key]))
+    .filter(v => v !== '' && v != null)
+
+  const cmp = SORTS[field.sort ?? 'none']
+  if (cmp) values = [...values].sort(cmp)
+
+  return values.map(v => ({ value: v, label: field.format ? field.format(v) : String(v) }))
+}
+
+// ── Selection bookkeeping ───────────────────────────────────────────
+
+/**
+ * Answering a step invalidates everything after it, so later answers are
+ * dropped rather than carried into a cascade they may no longer fit.
+ */
+export function selectionAfter(current, typeId, key, value) {
+  const type = getPartType(typeId)
+  const order = type?.cascade ?? []
+  const cut = order.indexOf(key)
+
+  const next = { _binId: current._binId, type: typeId }
+  for (const field of order.slice(0, cut)) {
+    if (current[field] != null) next[field] = current[field]
+  }
+  if (value != null) next[key] = coerceFieldValue(key, value)
+  return next
+}
+
+/** Select elements hand back strings; numeric fields need their type restored. */
+export function coerceFieldValue(key, value) {
+  return getField(key).numeric ? parseFloat(value) : value
+}
+
+// ── Stepping along a cascade ──────────────────────────────────────────────────
+
+/**
+ * The next catalog entry one step along this part's last numeric dimension,
+ * holding every other dimension constant.
+ *
+ * Duplicating a bin uses this to walk a size range: duplicate an M3x8 screw and
+ * get the M3x10. Which dimension steps is whichever numeric field the part type
+ * asks about last -- length for a screw, but a free length for a spring or a
+ * cross-section for an o-ring, with no change here.
+ *
+ * @param {object} entry        catalog entry to step from
+ * @param {object} [extraFilter] additional constraints, e.g. pinning a
+ *                               supplier's norm so the step stays within one
+ *                               product family
+ * @returns {object|null} the next entry, or null at the end of the range
+ */
+export function nextAlongCascade(entry, extraFilter = {}) {
+  const type = resolvePartType(entry)
+  const cascade = type?.cascade ?? []
+
+  const key = [...cascade].reverse().find(k => getField(k).numeric)
+  if (!key || entry[key] == null) return null
+
+  // Hold the other dimensions this type distinguishes. `variant` is skipped: it
+  // is not a catalog field yet, and callers pin the family via extraFilter.
+  const held = { headTypes: [entry.headType], ...extraFilter }
+  for (const field of cascade) {
+    if (field === key || field === 'variant') continue
+    if (entry[field] != null && entry[field] !== '') held[field] = entry[field]
+  }
+
+  const values = uniq(dbFilter(held).map(e => e[key]))
+    .filter(v => v != null)
+    .sort(SORTS.numeric)
+
+  const at = values.indexOf(entry[key])
+  if (at === -1 || at + 1 >= values.length) return null
+
+  return dbFilter({ ...held, [key]: values[at + 1] })[0] ?? null
+}

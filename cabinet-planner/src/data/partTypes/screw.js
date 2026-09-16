@@ -34,6 +34,9 @@ export default {
     flat:         'Flat Head',
   },
 
+  // Screws are the only type where head geometry is a question.
+  cascade: ['thread', 'headType', 'drive', 'length'],
+
   shortLabel(part) {
     const thread = part.thread || ''
     const ht     = part.headType || ''

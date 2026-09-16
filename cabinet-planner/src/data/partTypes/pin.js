@@ -18,6 +18,8 @@ export default {
   headTypes: ['pin'],
   headLabels: { pin: 'Cylindrical Pin' },
 
+  cascade: ['thread', 'length'],
+
   shortLabel(part) {
     const len = part.length ? '×' + part.length : ''
     return `${part.thread || ''}${len} · Pin`

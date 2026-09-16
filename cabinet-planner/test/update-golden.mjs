@@ -14,11 +14,20 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { computeGolden } from './compute-golden.mjs'
+import { buildCascade } from '../src/views/drawerMap/dmCascade.js'
+import { variantToFilter, walkCascade, digest, summarize } from './cascade-walk.mjs'
 
-const SNAPSHOT = join(dirname(fileURLToPath(import.meta.url)), 'golden.snapshot.json')
+const HERE = dirname(fileURLToPath(import.meta.url))
 
 const golden = computeGolden()
-writeFileSync(SNAPSHOT, JSON.stringify(golden, null, 2) + '\n')
-
+writeFileSync(join(HERE, 'golden.snapshot.json'), JSON.stringify(golden, null, 2) + '\n')
 console.log(`Wrote ${golden.length} golden records to test/golden.snapshot.json`)
+
+const cascade = walkCascade().map(({ typeId, selection }) => ({
+  typeId,
+  selection,
+  result: summarize(buildCascade({ typeId, selection, toFilter: variantToFilter })),
+}))
+writeFileSync(join(HERE, 'cascade.snapshot.json'), JSON.stringify(cascade, null, 2) + '\n')
+console.log(`Wrote ${cascade.length} cascade states to test/cascade.snapshot.json`)
 console.log('Review the diff: it is the record of what this change does to user-visible output.')

@@ -1,5 +1,6 @@
 import { updateState, getState } from '../../state.js'
 import bossardDb from '../../data/bossard-db.json'
+import { nextAlongCascade } from './dmCascade.js'
 import { pushHistory, undo as undoHistory, redo as redoHistory } from '../../utils/binHistory.js'
 import {
   getSelDrawerId, getSelBinIds, getKeyHandler, getMouseGridCell, getClipboardBins, getCreateMode, getZoom,
@@ -8,7 +9,7 @@ import {
 } from './dmState.js'
 import {
   findDrawer, clamp, clampGroupDelta, hasMultiCollision, hasCollision, overlaps, uid,
-  parseBinsFromClipboardText, dbFilter, uniq, dbEntryToPart, buildPartDescription,
+  parseBinsFromClipboardText, dbEntryToPart, buildPartDescription,
 } from './dmHelpers.js'
 import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from './dmConstants.js'
 
@@ -356,30 +357,15 @@ export function duplicateBin(bin, drawer, panel) {
 
   const newBin = { ...JSON.parse(JSON.stringify(bin)), id: uid(), x: newX }
 
-  // Auto-advance to the next length in the dropdown when duplicating a length-bearing part
-  if (newBin.part?.bossardPN && newBin.part?.length != null) {
+  // Duplicating a part steps one along its size range: an M3x8 screw becomes an
+  // M3x10. The part type decides which dimension that is.
+  if (newBin.part?.bossardPN) {
     const currentEntry = bossardDb.find(p => p.articleNumber === newBin.part.bossardPN)
     if (currentEntry) {
-      const lengths = uniq(
-        dbFilter({
-          headTypes:    [currentEntry.headType],
-          thread:       currentEntry.thread   || undefined,
-          drive:        currentEntry.drive    || undefined,
-          bossardNorms: currentEntry.bossardNorm ? [currentEntry.bossardNorm] : undefined,
-        }).map(p => p.length).filter(l => l != null)
-      ).sort((a, b) => a - b)
-
-      const idx = lengths.indexOf(currentEntry.length)
-      if (idx !== -1 && idx + 1 < lengths.length) {
-        const nextEntry = dbFilter({
-          headTypes:    [currentEntry.headType],
-          thread:       currentEntry.thread   || undefined,
-          drive:        currentEntry.drive    || undefined,
-          bossardNorms: currentEntry.bossardNorm ? [currentEntry.bossardNorm] : undefined,
-          length:       lengths[idx + 1],
-        })[0]
-        if (nextEntry) newBin.part = dbEntryToPart(nextEntry)
-      }
+      const nextEntry = nextAlongCascade(currentEntry, {
+        bossardNorms: currentEntry.bossardNorm ? [currentEntry.bossardNorm] : undefined,
+      })
+      if (nextEntry) newBin.part = dbEntryToPart(nextEntry)
     }
   }
 

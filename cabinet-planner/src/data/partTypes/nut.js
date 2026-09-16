@@ -18,6 +18,15 @@ export default {
   headTypes: ['nut'],
   headLabels: { nut: 'Nut' },
 
+  // Square, nyloc and thin hex nuts differ enough to ask first.
+  cascade: ['variant', 'thread'],
+
+  variants: [
+    { value: 'nut-square',   label: 'Square Nut' },
+    { value: 'nut-nylon',    label: 'Nylon Insert Lock Nut' },
+    { value: 'nut-hex-thin', label: 'Thin Hex Nut' },
+  ],
+
   lengthIndependent: true,
 
   shortLabel(part) {

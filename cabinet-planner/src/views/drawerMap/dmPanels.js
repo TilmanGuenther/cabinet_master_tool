@@ -11,10 +11,11 @@ import {
 import {
   findDrawer, clamp, clampGroupDelta, hasMultiCollision, hasCollision, overlaps,
   uid, esc, mk, drawerFillStats, setAbsRect, updateSelBox,
-  typeForHeadType, variantForEntry, dbFilter, uniq, sortThreads,
+  typeForHeadType, variantForEntry, dbFilter,
   buildPartDescription, dbEntryToPart, buildSelectRow,
 } from './dmHelpers.js'
-import { CELL, INSET, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, TYPE_DEFS, HEAD_LABELS, VARIANT_DEFS } from './dmConstants.js'
+import { buildCascade, selectionAfter } from './dmCascade.js'
+import { CELL, INSET, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, TYPE_DEFS, VARIANT_DEFS } from './dmConstants.js'
 import { duplicateBin } from './dmKeybinds.js'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -793,47 +794,32 @@ function renderPartAssigner(container, bin, drawer) {
   // Reset cascade state when a different bin is selected
   if (getPartSel()._binId !== bin.id) {
     setPartSel({ _binId: bin.id })
-    // Pre-populate from existing assignment (match by articleNumber)
+    // Pre-populate from the existing assignment, so re-opening a bin lands on
+    // what it already holds rather than an empty cascade.
     if (bin.part?.bossardPN) {
       const ex = bossardDb.find(p => p.articleNumber === bin.part.bossardPN)
       if (ex) {
-        getPartSel().type    = typeForHeadType(ex.headType)
-        getPartSel().thread  = ex.thread
-        getPartSel().head    = ex.headType
-        getPartSel().length  = ex.length ?? null
+        const sel = getPartSel()
+        sel.type     = typeForHeadType(ex.headType)
+        sel.thread   = ex.thread
+        sel.headType = ex.headType
+        sel.length   = ex.length ?? null
+        sel.drive    = ex.drive || null
         const v = variantForEntry(ex)
-        if (v) getPartSel().variant = v.value
+        if (v) sel.variant = v.value
       }
     }
   }
 
   const s = getPartSel()
 
-  // Section heading
   const h = mk('div', 'dm-assigner-heading')
   h.textContent = 'Part Assignment'
   container.appendChild(h)
 
-  // Current assignment badge + clear button
-  if (bin.part?.description) {
-    const cur = mk('div', 'dm-assigner-current')
-    const badge = mk('span', 'dm-assigner-badge')
-    badge.textContent = bin.part.description
-    const clrBtn = mk('button', 'btn dm-btn-clear')
-    clrBtn.textContent = '\u00D7 Clear'
-    clrBtn.addEventListener('click', () => {
-      setPartSel({ _binId: bin.id })
-      pushHistory(drawer.id, drawer.bins)
-      updateState(st => {
-        const b = findDrawer(st, drawer.id)?.bins.find(b => b.id === bin.id)
-        if (b) b.part = null
-      })
-    })
-    cur.append(badge, clrBtn)
-    container.appendChild(cur)
-  }
+  renderCurrentAssignment(container, bin, drawer)
 
-  // Step 1: Type
+  // ── Step 1: part type ──────────────────────────────────────────────────────
   const typeOptions = Object.entries(TYPE_DEFS)
     .filter(([, def]) => dbFilter({ headTypes: def.headTypes }).length > 0)
     .map(([value, def]) => ({ value, label: def.label }))
@@ -845,143 +831,75 @@ function renderPartAssigner(container, bin, drawer) {
 
   if (!s.type) return
 
-  const typeDef = TYPE_DEFS[s.type]
-
-  // Step 1.5: Variant (for nut, washer, standoff which come in multiple sub-kinds)
-  const variantDefs = VARIANT_DEFS[s.type]
-  let activeBossardNorms = undefined
-  if (variantDefs) {
-    const availableVariants = variantDefs.filter(v =>
-      dbFilter({ headTypes: typeDef.headTypes, bossardNorms: v.norms }).length > 0
-    )
-    if (availableVariants.length > 1) {
-      container.appendChild(buildSelectRow(
-        'Variant',
-        availableVariants.map(v => ({ value: v.value, label: v.label })),
-        s.variant,
-        val => {
-          setPartSel({ _binId: bin.id, type: s.type, variant: val })
-          renderPartAssigner(container, bin, drawer)
-        }
-      ))
-      if (!s.variant) return
-    } else if (availableVariants.length === 1 && !s.variant) {
-      getPartSel().variant = availableVariants[0].value
-    }
-    const selectedVariant = variantDefs.find(v => v.value === s.variant)
-    if (selectedVariant) activeBossardNorms = selectedVariant.norms
-  }
-
-  // Step 2: Thread
-  const threads = sortThreads(
-    uniq(dbFilter({ headTypes: typeDef.headTypes, bossardNorms: activeBossardNorms }).map(p => p.thread).filter(Boolean))
-  )
-
-  container.appendChild(buildSelectRow('Size', threads, s.thread, val => {
-    setPartSel({ _binId: bin.id, type: s.type, variant: s.variant, thread: val })
-    renderPartAssigner(container, bin, drawer)
-  }))
-
-  if (!s.thread) return
-
-  // Step 3: Head type (multi-head types only, and only when multiple options exist for this thread)
-  const isMultiHead = typeDef.headTypes.length > 1
-  let resolvedHead = s.head
-
-  if (isMultiHead) {
-    const headOptions = uniq(
-      dbFilter({ headTypes: typeDef.headTypes, thread: s.thread, bossardNorms: activeBossardNorms }).map(p => p.headType)
-    )
-    if (headOptions.length > 1) {
-      container.appendChild(buildSelectRow(
-        'Head',
-        headOptions.map(ht => ({ value: ht, label: HEAD_LABELS[ht] || ht })),
-        s.head,
-        val => {
-          setPartSel({ _binId: bin.id, type: s.type, variant: s.variant, thread: s.thread, head: val })
-          renderPartAssigner(container, bin, drawer)
-        }
-      ))
-      if (!s.head) return
-    } else if (headOptions.length === 1) {
-      // Auto-resolve: only one head type available for this thread
-      resolvedHead = headOptions[0]
-      if (s.head !== resolvedHead) {
-        getPartSel().head = resolvedHead
-      }
-      // Show as read-only info row
-      const infoRow = mk('div', 'dm-assigner-row')
-      const lbl = mk('span', 'dm-assigner-lbl')
-      lbl.textContent = 'Head'
-      const val = mk('span', 'dm-assigner-auto')
-      val.textContent = HEAD_LABELS[resolvedHead] || resolvedHead
-      infoRow.append(lbl, val)
-      container.appendChild(infoRow)
-    } else {
-      return // no options — shouldn't happen
-    }
-  } else {
-    // Single-headType category (nut, washer, standoff, set-screw, insert): headType is fixed
-    resolvedHead = typeDef.headTypes[0]
-  }
-
-  if (!resolvedHead) return
-
-  // Step 4: Drive (auto-resolved — only 1 per headType in current DB; show as info)
-  const driveOptions = uniq(
-    dbFilter({ headTypes: [resolvedHead], thread: s.thread, bossardNorms: activeBossardNorms }).map(p => p.drive).filter(Boolean)
-  )
-  let resolvedDrive = null
-  if (driveOptions.length > 1) {
-    container.appendChild(buildSelectRow('Drive', driveOptions, s.drive, val => {
-      setPartSel({ ...getPartSel(), drive: val, length: null, matchPN: undefined })
-      renderPartAssigner(container, bin, drawer)
-    }))
-    if (!s.drive) return
-    resolvedDrive = s.drive
-  } else if (driveOptions.length === 1) {
-    resolvedDrive = driveOptions[0]
-    const infoRow = mk('div', 'dm-assigner-row')
-    const lbl = mk('span', 'dm-assigner-lbl')
-    lbl.textContent = 'Drive'
-    const val = mk('span', 'dm-assigner-auto')
-    val.textContent = resolvedDrive
-    infoRow.append(lbl, val)
-    container.appendChild(infoRow)
-  }
-
-  // Step 5: Length (types that have a length dimension)
-  let resolvedLength = null
-  if (!['nut', 'washer'].includes(s.type)) {
-    const lengths = uniq(
-      dbFilter({ headTypes: [resolvedHead], thread: s.thread, drive: resolvedDrive || undefined, bossardNorms: activeBossardNorms })
-        .map(p => p.length).filter(l => l != null)
-    ).sort((a, b) => a - b)
-
-    if (lengths.length > 0) {
-      container.appendChild(buildSelectRow(
-        'Length',
-        lengths.map(l => ({ value: String(l), label: `${l} mm` })),
-        s.length != null ? String(s.length) : null,
-        val => {
-          setPartSel({ ...getPartSel(), length: val != null ? parseFloat(val) : null, matchPN: undefined })
-          renderPartAssigner(container, bin, drawer)
-        }
-      ))
-      if (s.length == null) return
-      resolvedLength = s.length
-    }
-  }
-
-  // Final match
-  const matches = dbFilter({
-    headTypes:    [resolvedHead],
-    thread:       s.thread,
-    drive:        resolvedDrive || undefined,
-    length:       resolvedLength,
-    bossardNorms: activeBossardNorms,
+  // ── Steps 2..n: whatever this part type asks for ───────────────────────────
+  const { steps, matches, complete } = buildCascade({
+    typeId: s.type,
+    selection: s,
+    toFilter: variantToFilter,
   })
 
+  for (const step of steps) {
+    if (step.kind === 'info') {
+      container.appendChild(buildInfoRow(step.label, step.text))
+      continue
+    }
+    container.appendChild(buildSelectRow(step.label, step.options, step.value, val => {
+      setPartSel(selectionAfter(getPartSel(), s.type, step.key, val))
+      renderPartAssigner(container, bin, drawer)
+    }))
+  }
+
+  if (!complete) return
+
+  renderMatch(container, bin, drawer, matches, s)
+}
+
+/** A read-only row for a step the cascade resolved on its own. */
+function buildInfoRow(label, text) {
+  const row = mk('div', 'dm-assigner-row')
+  const lbl = mk('span', 'dm-assigner-lbl')
+  lbl.textContent = label
+  const val = mk('span', 'dm-assigner-auto')
+  val.textContent = text
+  row.append(lbl, val)
+  return row
+}
+
+/** Translate a chosen variant into catalog filter keys. See dmCascade. */
+function variantToFilter(key, value) {
+  if (key !== 'variant') return { [key]: value }
+  for (const variants of Object.values(VARIANT_DEFS)) {
+    const match = variants.find(v => v.value === value)
+    if (match) return { bossardNorms: match.norms }
+  }
+  return {}
+}
+
+/** Current assignment badge plus its clear button. */
+function renderCurrentAssignment(container, bin, drawer) {
+  if (!bin.part?.description) return
+
+  const cur = mk('div', 'dm-assigner-current')
+  const badge = mk('span', 'dm-assigner-badge')
+  badge.textContent = bin.part.description
+
+  const clrBtn = mk('button', 'btn dm-btn-clear')
+  clrBtn.textContent = '\u00D7 Clear'
+  clrBtn.addEventListener('click', () => {
+    setPartSel({ _binId: bin.id })
+    pushHistory(drawer.id, drawer.bins)
+    updateState(st => {
+      const b = findDrawer(st, drawer.id)?.bins.find(b => b.id === bin.id)
+      if (b) b.part = null
+    })
+  })
+
+  cur.append(badge, clrBtn)
+  container.appendChild(cur)
+}
+
+/** Final disambiguation, preview and the assign button. */
+function renderMatch(container, bin, drawer, matches, s) {
   if (matches.length === 0) {
     const noMatch = mk('div', 'dm-assigner-nomatch')
     noMatch.textContent = 'No matching parts found.'
@@ -989,37 +907,28 @@ function renderPartAssigner(container, bin, drawer) {
     return
   }
 
-  // When multiple catalog entries match, let the user pick one
   let match = matches[0]
   if (matches.length > 1) {
-    // Auto-select first if nothing chosen yet
-    if (!s.matchPN) {
-      getPartSel().matchPN = matches[0].articleNumber
-    }
+    if (!s.matchPN) getPartSel().matchPN = matches[0].articleNumber
     const currentPN = s.matchPN || matches[0].articleNumber
+
     container.appendChild(buildSelectRow(
       'Part',
-      matches.map(m => ({
-        value: m.articleNumber,
-        label: `${buildPartDescription(m)} — ${m.articleNumber}`,
-      })),
+      matches.map(m => ({ value: m.articleNumber, label: `${buildPartDescription(m)} \u2014 ${m.articleNumber}` })),
       currentPN,
       val => {
         setPartSel({ ...getPartSel(), matchPN: val })
         renderPartAssigner(container, bin, drawer)
-      }
+      },
     ))
     match = matches.find(m => m.articleNumber === currentPN) || matches[0]
     if (!s.matchPN) return
   }
 
-  const desc  = buildPartDescription(match)
-
   const preview = mk('div', 'dm-assigner-preview')
-  preview.textContent = desc
+  preview.textContent = buildPartDescription(match)
   container.appendChild(preview)
 
-  // Live silhouette preview for the matched part
   const previewPart = dbEntryToPart(match)
   if (previewPart.headType) {
     const iconWrap = mk('div', 'dm-assigner-icon-wrap')
@@ -1029,8 +938,7 @@ function renderPartAssigner(container, bin, drawer) {
 
   const assignBtn = mk('button', 'btn btn-primary dm-assign-btn')
   assignBtn.textContent = 'Assign Part'
-  const isAlreadyAssigned = bin.part?.bossardPN === match.articleNumber
-  if (isAlreadyAssigned) {
+  if (bin.part?.bossardPN === match.articleNumber) {
     assignBtn.disabled = true
     assignBtn.textContent = 'Already Assigned'
   }
