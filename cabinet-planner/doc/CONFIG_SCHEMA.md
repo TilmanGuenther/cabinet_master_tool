@@ -66,20 +66,57 @@ The 5 mm safety margin and 42 mm Gridfinity base unit are fixed physical constan
 | `part` | object | Part stored in this bin |
 | `overrides` | object | *(optional)* Per-bin label overrides — see below |
 
+## Preferences
+
+Optional top-level `preferences` block holding UI choices rather than cabinet data.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `supplier` | string | *(optional)* Catalog id to answer the assigner's supplier question with by default. Omit for no preference. Only has an effect when more than one catalog is registered. |
+
 ## Part
+
+A self-contained snapshot of the catalog entry, taken when the part was
+assigned. The config remains the source of truth: a part keeps working even if
+the catalog it came from is later changed or removed.
+
+### Identity
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `supplier` | string | Catalog id the part came from, e.g. `"bossard"` |
+| `sku` | string | The supplier's article number |
+| `catalogRef` | string | The supplier's own norm or series reference, e.g. `"BN 912"` |
+| `partType` | string | What the part is: `screw`, `nut`, `washer`, `standoff`, `set-screw`, `insert`, `pin`, `press-nut` |
+
+`supplier` and `sku` are only meaningful together — SKUs are unique within a
+catalog, not across suppliers.
+
+### Description and dimensions
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `description` | string | Human-readable part name |
+| `title` | string | *(optional)* The supplier's own description |
 | `standard` | string | DIN/ISO standard (e.g. `"DIN 912"`) |
-| `bossardPN` | string | Bossard article number (empty if unknown) |
-| `thread` | string | Thread size (e.g. `"M3"`) |
-| `length` | number | Length in mm (0 for nuts/washers) |
+| `thread` | string | Thread size (e.g. `"M3"`), or a nominal diameter (`"Ø3"`) for pins |
+| `length` | number | Length in mm (`null` for nuts and washers) |
 | `drive` | string | Drive type (e.g. `"Torx"`) |
-| `headType` | string | Head type (e.g. `"socket"`, `"button"`, `"nut"`, `"washer"`) |
+| `headType` | string | Head geometry (e.g. `"socket"`, `"button"`, `"nut"`, `"washer"`) |
 | `material` | string | *(optional)* Material (e.g. `"Steel"`, `"Stainless"`) |
 | `materialGrade` | string | *(optional)* Material grade (e.g. `"8.8"`, `"A2"`) |
-| `title` | string | *(optional)* Short title from catalog (may differ from description) |
+| `variant` | string | *(optional)* Sub-kind, e.g. `"nut-square"`, `"washer-large"` |
+| `shape` | object | *(optional)* Geometry discriminators for the silhouette: `nutShape`, `locking`, `standoffEnds` |
+
+### Deprecated
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bossardPN` | string | Superseded by `sku`. Still written, so older builds can read new configs; read indefinitely, so older configs keep working. |
+| `bossardNorm` | string | Superseded by `catalogRef`, on the same terms. |
+
+A config that carries only `bossardPN` — written before suppliers were
+modelled — is read as a Bossard part. No migration is needed.
 
 ## Bin Overrides
 
@@ -169,7 +206,7 @@ The optional `overrides` block lets you customize how a bin appears on labels wi
 
 - Bin positions must not overlap within a drawer (enforced by DrawerMap's collision detection when placing bins interactively; not validated on JSON import)
 - `x + w` must be ≤ `gridW`, `y + h` must be ≤ `gridH`
-- `bossardPN` can be empty string — the app handles this gracefully (barcode is omitted)
+- `sku` can be an empty string — the app handles this gracefully (the barcode is omitted)
 - `densityKey` is derived at runtime as `"{thread}-{headType}"` — it is not stored in the config
 - `gridW` and `gridH` on drawers are inherited from their parent cabinet and kept in sync on drawer creation
 - The `overrides` object is entirely optional; omitting it (or any field within it) falls back to the computed value from `part`

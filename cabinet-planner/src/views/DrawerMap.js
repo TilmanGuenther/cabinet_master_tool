@@ -23,7 +23,7 @@ import { mk } from './drawerMap/dmHelpers.js'
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function jumpToDrawer(id) { _selDrawerId = id }
+export function jumpToDrawer(id) { setSelDrawerId(id) }
 
 export function renderDrawerMap(container, state) {
   setContainer(container)

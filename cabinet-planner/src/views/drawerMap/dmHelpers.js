@@ -1,67 +1,83 @@
-import bossardDb from '../../data/bossard-db.json'
-import { TYPE_DEFS, HEAD_LABELS, VARIANT_DEFS, CELL, INSET } from './dmConstants.js'
+import { allParts, DEFAULT_CATALOG } from '../../data/catalogs/index.js'
+import { INSET } from './dmConstants.js'
+import { typeForHeadType, describePart, resolvePartType } from '../../data/partTypes/index.js'
 
 // ── Part assigner helpers ─────────────────────────────────────────────────────
 
-export function typeForHeadType(ht) {
-  for (const [type, def] of Object.entries(TYPE_DEFS)) {
-    if (def.headTypes.includes(ht)) return type
-  }
-  return null
-}
+// Re-exported so existing importers keep working; the registry owns it now.
+export { typeForHeadType }
 
+/**
+ * The variant spec for an entry, or null when its type has no sub-kinds.
+ * Entries carry `variant` explicitly; it used to be inferred by matching the
+ * Bossard norm against a hardcoded list.
+ */
 export function variantForEntry(entry) {
-  const type = typeForHeadType(entry.headType)
-  const variants = VARIANT_DEFS[type]
-  if (!variants) return null
-  return variants.find(v => v.norms.includes(entry.bossardNorm)) || null
+  if (!entry?.variant) return null
+  const type = resolvePartType(entry)
+  return type?.variants?.find(v => v.value === entry.variant) ?? null
 }
 
-export function dbFilter({ headTypes, thread, head, drive, length, bossardNorms } = {}) {
-  return bossardDb.filter(p => {
-    if (headTypes    && !headTypes.includes(p.headType))      return false
-    if (thread       && p.thread   !== thread)                return false
-    if (head         && p.headType !== head)                  return false
-    if (drive        && p.drive    !== drive)                 return false
-    if (length != null && p.length !== length)                return false
-    if (bossardNorms && !bossardNorms.includes(p.bossardNorm)) return false
+/**
+ * Query the catalog.
+ *
+ * `headTypes` and `bossardNorms` are membership tests; every other key is an
+ * exact match against the entry field of the same name, so a part type can
+ * filter on dimensions this function has never heard of. Empty-string and null
+ * values are ignored rather than matched, since catalog entries use '' for
+ * "not applicable".
+ */
+export function dbFilter({ headTypes, ...fields } = {}) {
+  return allParts().filter(entry => {
+    if (headTypes && !headTypes.includes(entry.headType)) return false
+    for (const [key, value] of Object.entries(fields)) {
+      if (value == null || value === '') continue
+      if (entry[key] !== value) return false
+    }
     return true
   })
 }
 
 export function uniq(arr) { return [...new Set(arr)] }
 
-export function sortThreads(threads) {
-  return threads.sort((a, b) => parseFloat(a.replace('M', '').replace('\u00D8', '')) - parseFloat(b.replace('M', '').replace('\u00D8', '')))
-}
-
 export function buildPartDescription(entry) {
-  const parts = []
-  if (entry.thread)          parts.push(entry.thread)
-  if (entry.length != null)  parts.push(`\xD7${entry.length}`)
-  const variant = variantForEntry(entry)
-  const headLbl = variant ? variant.label : HEAD_LABELS[entry.headType]
-  if (headLbl)               parts.push(headLbl)
-  if (entry.drive)           parts.push(entry.drive)
-  if (entry.material)        parts.push(entry.material)
-  if (entry.materialGrade)   parts.push(entry.materialGrade)
-  return parts.join(' ')
+  return describePart(entry, variantForEntry(entry)?.label)
 }
 
+/**
+ * The record written into a user's config when a part is assigned.
+ *
+ * A self-contained snapshot of the catalog entry: the config stays readable and
+ * keeps working even if the catalog it came from is later changed or removed
+ * (ADR-002). `bossardPN` and `bossardNorm` are deprecated aliases kept for one
+ * release so configs stay loadable by older builds; everything reads the
+ * supplier-neutral fields via utils/partIdentity.js.
+ */
 export function dbEntryToPart(entry) {
-  return {
-    description:   buildPartDescription(entry),
+  const part = {
+    description:   describePart(entry, variantForEntry(entry)?.label),
     title:         entry.title         || '',
-    bossardPN:     entry.articleNumber,
-    bossardNorm:   entry.bossardNorm   || '',
+
+    supplier:      entry.supplier      || DEFAULT_CATALOG,
+    sku:           entry.sku,
+    catalogRef:    entry.catalogRef    || '',
+    partType:      entry.partType      || '',
+
     thread:        entry.thread        || '',
     headType:      entry.headType      || '',
     drive:         entry.drive         || '',
     length:        entry.length        ?? null,
     material:      entry.material      || '',
     materialGrade: entry.materialGrade || '',
-    standard:      entry.norms?.[0]    || entry.bossardNorm || '',
+    standard:      entry.norms?.[0]    || entry.catalogRef || '',
+
+    // Deprecated aliases. Written for one release, read indefinitely.
+    bossardPN:     entry.sku,
+    bossardNorm:   entry.catalogRef    || '',
   }
+  if (entry.variant) part.variant = entry.variant
+  if (entry.shape)   part.shape   = { ...entry.shape }
+  return part
 }
 
 export function buildSelectRow(label, options, currentVal, onChange) {

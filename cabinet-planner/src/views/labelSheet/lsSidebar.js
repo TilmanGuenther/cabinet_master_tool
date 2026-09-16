@@ -7,6 +7,7 @@
 
 import { updateState } from '../../state.js'
 import { mk, esc, parseBinKey, findBinInState } from './lsHelpers.js'
+import { skuLabel, partSku } from '../../utils/partIdentity.js'
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ export function buildSingleSidebar(panel, state, key) {
 
   makeTextRow('Description', 'description', part.description || bin.id)
   makeTextRow('Standard', 'standard', part.standard || '')
-  makeTextRow('BN (barcode)', 'bn', part.bossardPN || '')
+  makeTextRow(`${skuLabel(part)} (barcode)`, 'bn', partSku(part))
 
   function makeCb(id, label, field) {
     const row = mk('div', 'dm-override-cb-row')

@@ -5,6 +5,7 @@
  * (Extracted from Setup.js)
  */
 
+import { CATALOGS } from '../data/catalogs/index.js'
 import {
   setState, updateState,
   isStorageAvailable, getAutoSaveTimestamp,
@@ -75,12 +76,57 @@ export function renderDataManager(container, state) {
   })
 
   // ── Saves ─────────────────────────────────────────────────────────────────
+  el.appendChild(renderSupplierPanel(state))
   el.appendChild(renderSavesPanel())
 
   container.appendChild(el)
 }
 
 // ── Saves panel ───────────────────────────────────────────────────────────────
+
+/**
+ * Preferred supplier.
+ *
+ * Only meaningful once more than one catalog is registered, so with a single
+ * catalog the section is left out entirely rather than shown as a dropdown with
+ * one choice.
+ */
+function renderSupplierPanel(state) {
+  const ids = Object.keys(CATALOGS)
+  if (ids.length < 2) return document.createDocumentFragment()
+
+  const section = document.createElement('div')
+  section.className = 'section no-print'
+
+  const current = state.preferences?.supplier || ''
+  const options = ids.map(id =>
+    `<option value="${esc(id)}"${id === current ? ' selected' : ''}>${esc(CATALOGS[id].brand)}</option>`,
+  ).join('')
+
+  section.innerHTML = `
+    <h2 class="section-heading">Preferred Supplier</h2>
+    <p class="dm-description">
+      Answers the supplier question up front when assigning parts, so filling a drawer
+      from one vendor does not mean picking it for every bin. You can still choose a
+      different supplier for any individual bin.
+    </p>
+    <select id="dm-preferred-supplier">
+      <option value="">&mdash; no preference &mdash;</option>
+      ${options}
+    </select>
+  `
+
+  section.querySelector('#dm-preferred-supplier').addEventListener('change', e => {
+    const value = e.target.value
+    updateState(st => {
+      if (!st.preferences) st.preferences = {}
+      if (value) st.preferences.supplier = value
+      else delete st.preferences.supplier
+    })
+  })
+
+  return section
+}
 
 function renderSavesPanel() {
   const panel = document.createElement('div')

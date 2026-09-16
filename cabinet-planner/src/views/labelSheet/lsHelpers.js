@@ -2,6 +2,8 @@
  * Shared utilities for the LabelSheet view.
  */
 
+import { shortLabel } from '../../data/partTypes/index.js'
+
 // Gridfinity cell pitch (mm)
 export const CELL_MM = 42
 // Label height is constant (mm)
@@ -40,31 +42,10 @@ export function esc(str) {
   return d.innerHTML
 }
 
-/** Build a concise, consistent description from part fields. */
+/**
+ * Compact one-line description for a bin label.
+ * The per-type wording lives with each part type in src/data/partTypes/.
+ */
 export function formatDesc(part) {
-  const thread = part.thread || ''
-  const ht     = part.headType || ''
-  const length = part.length
-
-  if (ht === 'nut') {
-    const nyloc = part.description?.toLowerCase().includes('nyloc') || part.standard?.includes('985')
-    return `${thread} ${nyloc ? 'Nyloc Nut' : 'Hex Nut'}`
-  }
-  if (ht === 'washer')  return `${thread} Washer`
-  if (ht === 'standoff') return `${thread}${length ? '\u00D7' + length : ''} · Standoff`
-  if (ht === 'pin')      return `${thread}${length ? '\u00D7' + length : ''} · Pin`
-
-  if (thread || ht) {
-    const HEAD = {
-      socket: 'Socket', 'low-socket': 'Low Socket',
-      button: 'Button', countersunk: 'Countersunk',
-      pan: 'Pan', flat: 'Flat',
-    }
-    const headLabel = HEAD[ht] || ht
-    const drive = part.drive || ''
-    const size  = thread + (length ? '\u00D7' + length : '')
-    return [size, headLabel, drive].filter(Boolean).join(' · ')
-  }
-
-  return part.description || ''
+  return shortLabel(part)
 }

@@ -3,10 +3,11 @@
 Bossard PDF catalog parser.
 
 Reads all PDFs in ./pdfs/, extracts part metadata and article numbers,
-outputs ../src/data/bossard-db.json.
+outputs ../src/data/catalogs/bossard/parts.json in the normalized
+catalog schema (see doc/CATALOG_SCHEMA.md).
 
-Usage (from cabinet-planner/tools/):
-    python3 parse_bossard.py
+Usage (from cabinet-planner/tools/importers/bossard/):
+    python3 parse.py
 
 Requirements:
     pip install pymupdf
@@ -23,7 +24,9 @@ except ImportError:
     sys.exit("Missing dependency: pip install pymupdf")
 
 PDF_DIR = Path(__file__).parent / "pdfs"
-OUT_FILE = Path(__file__).parent.parent / "src" / "data" / "bossard-db.json"
+# Repo root is three levels up now: tools/importers/bossard/parse.py
+ROOT = Path(__file__).resolve().parents[3]
+OUT_FILE = ROOT / "src" / "data" / "catalogs" / "bossard" / "parts.json"
 
 # --- Mappings ---
 
@@ -46,6 +49,38 @@ DRIVE_MAP = {
     "Schlitz":         "Slotted",
     "Torx":            "Torx",
 }
+
+# --- Normalized-schema mappings ---
+# The app needs partType, variant and shape stated explicitly; they used to be
+# inferred at runtime from head types, BN norms and German title text.
+
+PART_TYPE_BY_HEAD = {
+    "button": "screw", "socket": "screw", "low-socket": "screw",
+    "countersunk": "screw", "pan": "screw", "flat": "screw",
+    "nut": "nut", "washer": "washer", "standoff": "standoff",
+    "set-screw": "set-screw", "insert": "insert", "pin": "pin",
+    "press-nut": "press-nut",
+}
+
+VARIANT_BY_NORM = {
+    "BN 145": "nut-square",    "BN 3525": "nut-square",
+    "BN 161": "nut-nylon",     "BN 20242": "nut-hex-thin",
+    "BN 715": "washer-std",    "BN 729": "washer-large",
+    "BN 726": "washer-socket",
+    "BN 3318": "standoff-mf",  "BN 3319": "standoff-ff",
+}
+
+
+def derive_shape(norm: str, title: str, part_type: str) -> dict:
+    """Geometry discriminators the silhouette renderers need stated outright."""
+    shape = {}
+    if part_type == "nut":
+        shape["nutShape"] = "square" if norm == "BN 145" or "Vierkant" in title else "hex"
+        shape["locking"] = "nylon" if norm == "BN 161" or "nyloc" in title.lower() else "none"
+    if part_type == "standoff":
+        shape["standoffEnds"] = "mf" if "Aussengewinde" in title else "ff"
+    return shape
+
 
 ARTICLE_RE   = re.compile(r'^\d+$')
 THREAD_RE    = re.compile(r'^M\d+([,\.]\d+)?$')
@@ -129,7 +164,13 @@ def parse_pdf(path: Path) -> list[dict]:
     # Infer headType from title for parts without Kopfform (nuts, washers, etc.)
     if not meta["headType"]:
         title_lower = meta["title"].lower()
-        if "mutter" in title_lower:
+        # Retaining rings / circlips (DIN 6799, DIN 471/472) match "scheib" but
+        # are not washers: no thread, different geometry, and the d1 column is a
+        # shaft diameter. There is no part type for them yet, so leave headType
+        # empty and let the guard below skip the file rather than mislabel them.
+        if "sicherungsscheibe" in title_lower or "sicherungsring" in title_lower:
+            meta["headType"] = ""
+        elif "mutter" in title_lower:
             meta["headType"] = "nut"
         elif "scheib" in title_lower or "unterleg" in title_lower:
             meta["headType"] = "washer"
@@ -143,6 +184,12 @@ def parse_pdf(path: Path) -> list[dict]:
             meta["headType"] = "press-nut"
         elif "stift" in title_lower:
             meta["headType"] = "pin"
+
+    # A file we cannot classify would emit entries with an empty headType, which
+    # have no silhouette renderer and no density model. Skip it loudly instead.
+    if not meta["headType"]:
+        print(f"skipped (unrecognised part type: {meta['title'][:50]!r})", end=" ", flush=True)
+        return []
 
     # --- Parse table: columns are each on their own line ---
     # After "Artikelnummer", column header names follow until the first article number.
@@ -212,19 +259,27 @@ def parse_pdf(path: Path) -> list[dict]:
                 thread = normalize_thread(thread_raw)
             length = parse_number(values[length_idx]) if length_idx is not None else None
 
+            part_type = PART_TYPE_BY_HEAD.get(meta["headType"], meta["headType"])
             entry = {
-                "articleNumber": article,
-                "bossardNorm": meta["bossardNorm"],
+                "sku": article,
+                "catalogRef": meta["bossardNorm"],
                 "title": meta["title"],
                 "norms": meta["norms"],
-                "thread": thread,
+                "partType": part_type,
                 "headType": meta["headType"],
+                "thread": thread,
                 "drive": meta["drive"],
                 "material": meta["material"],
                 "materialGrade": meta["materialGrade"],
             }
+            variant = VARIANT_BY_NORM.get(meta["bossardNorm"])
+            if variant:
+                entry["variant"] = variant
             if length is not None:
                 entry["length"] = length
+            shape = derive_shape(meta["bossardNorm"], meta["title"], part_type)
+            if shape:
+                entry["shape"] = shape
 
             parts_list.append(entry)
             j += 1 + num_cols
@@ -248,6 +303,7 @@ def main():
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(all_parts, ensure_ascii=False, indent=2))
     print(f"Written to {OUT_FILE}")
+    print("Run `npm run validate` from cabinet-planner/ to check the result.")
 
 
 if __name__ == "__main__":

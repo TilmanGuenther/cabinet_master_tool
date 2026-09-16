@@ -15,8 +15,10 @@
  */
 
 import JsBarcode from 'jsbarcode'
+import { barcodeValue } from '../utils/partIdentity.js'
+import { hasSilhouette, silhouetteLayout } from '../data/partTypes/index.js'
 import { triggerPrint } from '../utils/print.js'
-import { getFastenerSVGLabel, getFastenerSVGLabelTop, getFastenerSVGLabelReduced } from '../utils/fastenerSvg.js'
+import { getPartSVGLabel, getPartSVGLabelTop, getPartSVGLabelReduced } from '../utils/partSvg.js'
 import { getState } from '../state.js'
 import { LABEL_H_MM, labelWidthMM, binKey, formatDesc } from './labelSheet/lsHelpers.js'
 import { buildSidebar } from './labelSheet/lsSidebar.js'
@@ -244,9 +246,8 @@ export function renderLabelSheet(container, state) {
         _allLabelKeys.push(key)
 
         // Resolve effective values — overrides take precedence over part data
-        const effectiveDescription = ov.description || part.description || bin.id
         const effectiveStandard    = 'standard' in ov ? ov.standard : (part.standard || '')
-        const effectiveBN          = 'bn' in ov ? ov.bn : (part.bossardPN || '')
+        const effectiveBN          = 'bn' in ov ? ov.bn : barcodeValue(part)
         const disableImage         = !!ov.disableImage
         const reduceImageLength    = !!ov.reduceImageLength
         const ignoreIcon           = !!ov.ignoreIcon
@@ -291,7 +292,7 @@ export function renderLabelSheet(container, state) {
               displayValue: false,
               lineColor: '#111',
             })
-          } catch (_) { /* invalid BN — skip barcode */ }
+          } catch { /* invalid BN — skip barcode */ }
           barcodeDiv.appendChild(svgEl)
           left.appendChild(barcodeDiv)
         }
@@ -299,9 +300,9 @@ export function renderLabelSheet(container, state) {
         label.appendChild(left)
 
         // ── Right: icon(s) ──────────────────────────────────────────────────
-        if (part.headType && !disableImage) {
-          const ht = part.headType
-          const topIsFirst = (ht === 'nut' || ht === 'washer')
+        if (hasSilhouette(part) && !disableImage) {
+          // Which view leads in a one-cell label is a property of the part type.
+          const topIsFirst = silhouetteLayout(part) === 'top-first'
           const showSide = binW > 1 || !topIsFirst
           const showTop  = binW > 1 || topIsFirst
 
@@ -312,15 +313,15 @@ export function renderLabelSheet(container, state) {
             const sideDiv = document.createElement('div')
             sideDiv.className = 'label-icon-side'
             sideDiv.innerHTML = reduceImageLength
-              ? getFastenerSVGLabelReduced(part)
-              : getFastenerSVGLabel(part)
+              ? getPartSVGLabelReduced(part)
+              : getPartSVGLabel(part)
             iconsDiv.appendChild(sideDiv)
           }
 
           if (showTop) {
             const topDiv = document.createElement('div')
             topDiv.className = 'label-icon-top'
-            topDiv.innerHTML = getFastenerSVGLabelTop(part)
+            topDiv.innerHTML = getPartSVGLabelTop(part)
             iconsDiv.appendChild(topDiv)
           }
 

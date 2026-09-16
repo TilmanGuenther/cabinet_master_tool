@@ -1,4 +1,5 @@
 import { jsPDF, GState } from 'jspdf'
+import { partSku } from '../utils/partIdentity.js'
 
 /**
  * Bin Location Poster — full-scale printable drawer map for placing under
@@ -43,11 +44,7 @@ function colLetter(x) {
  * `charCount` is a rough estimate of the number of characters.
  * Returns a value clamped to [min, max].
  */
-function fitFontSize(availW, charCount, min, max) {
-  // Approximate: proportional font ≈ 0.58 × fontSize per character
-  const fs = availW / (charCount * 0.58)
-  return Math.max(min, Math.min(max, fs))
-}
+
 
 
 /** Build a complete SVG string for the poster. */
@@ -179,7 +176,7 @@ function buildPosterSVG(cabinet, drawer) {
       const len  = bin.part.length != null ? ` × ${bin.part.length}` : ''
       const threadStr = thr + len
       const headStr   = bin.part.headType || ''
-      const pnStr     = bin.part.bossardPN || bin.part.standard || ''
+      const pnStr     = partSku(bin.part) || bin.part.standard || ''
 
       // Font sizes: constrained by both height and width so text never overflows.
       // Bold text has wider characters (~0.62 factor); regular uses 0.58.
@@ -452,7 +449,7 @@ function buildPosterPDF(cabinet, drawer) {
       const len       = bin.part.length != null ? ` × ${bin.part.length}` : ''
       const threadStr = thr + len
       const headStr   = bin.part.headType || ''
-      const pnStr     = bin.part.bossardPN || bin.part.standard || ''
+      const pnStr     = partSku(bin.part) || bin.part.standard || ''
 
       const fsThread = threadStr ? Math.max(3.5, Math.min(9,   safeH / 3.2, safeW / (threadStr.length * 0.62))) : 0
       const fsHead   = headStr   ? Math.max(2.5, Math.min(5.5, safeH / 6.5, safeW / (headStr.length   * 0.58))) : 0

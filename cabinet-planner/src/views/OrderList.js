@@ -9,6 +9,8 @@
 
 import { binVolumeML } from '../utils/volume.js'
 import { getDensity } from '../data/densities.js'
+import { partIdentity, partSku, skuLabel } from '../utils/partIdentity.js'
+import { CATALOGS } from '../data/catalogs/index.js'
 import { updateState } from '../state.js'
 
 function roundToNearest(value, step) {
@@ -42,14 +44,21 @@ export function renderOrderList(container, state) {
   `
   el.appendChild(settingsPanel)
 
-  // ── Table ────────────────────────────────────────────────────────────────────
+  // ── Table ──────────────────────────────────────────────────────────
+  // With a single catalog the supplier is implied, so its column is left out
+  // and the SKU column simply carries that supplier's own name for its numbers.
+  const supplierIds  = Object.keys(CATALOGS)
+  const multiSupplier = supplierIds.length > 1
+  const skuHeading   = multiSupplier ? 'Part No.' : (CATALOGS[supplierIds[0]]?.skuLabel || 'Part No.')
+
   const table = document.createElement('table')
   table.innerHTML = `
     <thead>
       <tr>
         <th class="no-print">In Cart</th>
         <th>Description</th>
-        <th>Bossard PN</th>
+        ${multiSupplier ? '<th>Supplier</th>' : ''}
+        <th>${esc(skuHeading)}</th>
         <th>Bin Size</th>
         <th>Vol (ml)</th>
         <th>Density (pcs/ml)</th>
@@ -69,14 +78,21 @@ export function renderOrderList(container, state) {
       const part = bin.part || {}
       const effectiveHeightUnits = bin.heightUnits ?? (drawer.defaultHeightUnits ?? 6)
       const vol = binVolumeML(bin.w, bin.h, effectiveHeightUnits)
-      const density = getDensity(part.thread || 'M3', part.headType || 'socket', part.length)
+      // Bins with no part assigned still show a plausible quantity, as before.
+      const density = getDensity({
+        ...part,
+        thread:   part.thread   || 'M3',
+        headType: part.headType || 'socket',
+      })
       const qty = roundToNearest(vol * density * (fillPercent / 100), roundTo)
       const binKey = bin.id || `${drawer.id}-${bin.w}-${bin.h}`
       const inCart = cartItems[binKey] || false
 
       rows.push({
         description: part.description || bin.id,
-        bossardPN: part.bossardPN || '',
+        supplier: partIdentity(part)?.supplier || '',
+        sku: partSku(part),
+        skuLabel: skuLabel(part),
         binSize: `${bin.w}x${bin.h} h${effectiveHeightUnits}`,
         vol,
         density,
@@ -91,7 +107,8 @@ export function renderOrderList(container, state) {
           <input type="checkbox" class="cart-checkbox" data-key="${esc(binKey)}"${inCart ? ' checked' : ''}>
         </td>
         <td>${esc(part.description || bin.id)}</td>
-        <td>${esc(part.bossardPN || '—')}</td>
+        ${multiSupplier ? `<td>${esc(CATALOGS[partIdentity(part)?.supplier]?.brand || '—')}</td>` : ''}
+        <td>${esc(partSku(part) || '—')}</td>
         <td>${bin.w}x${bin.h} h${effectiveHeightUnits}</td>
         <td>${vol.toFixed(1)}</td>
         <td>${density.toFixed(1)}</td>
@@ -138,17 +155,31 @@ export function renderOrderList(container, state) {
 
   // ── CSV export ────────────────────────────────────────────────────────────────
   el.querySelector('#export-csv-btn').addEventListener('click', () => {
-    const header = 'Bossard PN,Description,Quantity'
-    const csvEsc = s => String(s ?? '').replace(/"/g, '""')
-    const lines = rows.map(r => `"${csvEsc(r.bossardPN)}","${csvEsc(r.description)}",${r.qty}`)
-    const csv = [header, ...lines].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'order-list.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    const csvEsc = v => String(v ?? '').replace(/"/g, '""')
+
+    // Order lists are placed with one vendor at a time, so each supplier gets
+    // its own file rather than one mixed list a buyer has to split by hand.
+    const bySupplier = new Map()
+    for (const row of rows) {
+      const key = row.supplier || 'unknown'
+      if (!bySupplier.has(key)) bySupplier.set(key, [])
+      bySupplier.get(key).push(row)
+    }
+
+    for (const [supplier, supplierRows] of bySupplier) {
+      const heading = supplierRows[0]?.skuLabel || 'Part No.'
+      const header  = `${heading},Description,Quantity`
+      const lines   = supplierRows.map(r => `"${csvEsc(r.sku)}","${csvEsc(r.description)}",${r.qty}`)
+      const csv     = [header, ...lines].join('\n')
+
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url
+      a.download = bySupplier.size > 1 ? `order-list-${supplier}.csv` : 'order-list.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   })
 }
 

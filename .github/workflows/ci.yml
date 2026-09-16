@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]   # main is covered by deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cabinet-planner/package-lock.json
+
+      - name: Install dependencies
+        working-directory: cabinet-planner
+        run: npm ci
+
+      # Catalog data is validated before the build so a contributor gets a
+      # precise per-SKU error rather than a silently-wrong silhouette or a
+      # mispriced order line. See doc/CATALOG_SCHEMA.md.
+      # Catches identifiers used but never defined -- the one class of bug the
+      # bundler happily ships and the tests cannot see, because it only fails
+      # when a user clicks the thing.
+      - name: Lint
+        working-directory: cabinet-planner
+        run: npm run lint
+
+      - name: Validate catalogs
+        working-directory: cabinet-planner
+        run: npm run validate
+
+      # Golden output test: description text, order-list densities and every
+      # silhouette must stay byte-identical across refactors. See test/.
+      - name: Golden output test
+        working-directory: cabinet-planner
+        run: npm run test:golden
+
+      - name: Build
+        working-directory: cabinet-planner
+        run: npm run build
+
+      # Every catalog is inlined into the single-file output (ADR-003), so the
+      # bundle grows with each one. See doc/CATALOG_PLUGIN_PLAN.md section 4.2.
+      - name: Check bundle size
+        working-directory: cabinet-planner
+        run: npm run check:size
