@@ -565,12 +565,29 @@ It is pure churn across a dozen files with no behavioural payoff, and the names 
 only half-wrong: the modules genuinely do hold fastener geometry alongside the rest. Worth
 doing with Phase 8's documentation sweep rather than on its own.
 
-### Phase 7 — Multi-supplier UX (only once >1 catalog exists)
+### Phase 7 — Multi-supplier UX — **DONE** (only once >1 catalog exists)
 
 | # | Task | Files |
 |---|---|---|
 | 7.1 | Supplier step in the cascade — auto-skipped when only one catalog is registered, so today's flow is unchanged | `dmPanels.js` |
 | 7.2 | Preferred-supplier setting in `state.preferences.supplier` to keep dropdowns short | `state.js`, `DataManager.js` |
+
+**Shipped as**: `supplier` is an ordinary cascade field in `_fields.js`, prepended to every
+part type's cascade by `cascadeFor()` — and only when more than one catalog is registered.
+A part type has no business knowing about suppliers, so none of them declare it.
+
+With a single catalog the step is left out entirely and nothing about the assigner changes,
+which is why all 422 existing tests passed untouched. A preferred supplier
+(`state.preferences.supplier`, set in the Data Manager) answers the question up front so
+filling a drawer from one vendor does not mean picking it for every bin; any individual
+bin can still choose differently, and changing supplier clears the answers under it, since
+a variant or thread from one catalog may not exist in another.
+
+Six tests register a second catalog in memory to exercise what nobody can see yet. The one
+that matters gives both suppliers a part numbered **1092448**: the cascade returns exactly
+one match, from the chosen supplier. That is the collision Phase 4 introduced
+`partIdentity()` to prevent, now demonstrated rather than asserted. Duplicating a bin also
+stays inside its own catalog.
 
 ### Phase 8 — Contributor tooling and docs
 

@@ -30,6 +30,24 @@ function threadValue(thread) {
 }
 
 export const FIELDS = {
+  /**
+   * Which supplier's catalog a part comes from.
+   *
+   * Prepended to every part type's cascade when more than one catalog is
+   * registered -- a part type has no business knowing about suppliers. With a
+   * single catalog the step has one option and resolves silently, so the
+   * assigner looks exactly as it did before.
+   */
+  supplier: {
+    label: 'Supplier',
+    autoResolve: 'silent',
+    sort: 'none',
+    // Options are shown by brand. The lookup lives with the cascade rather than
+    // here, so this module stays free of catalog data -- the validator imports
+    // it and runs without a bundler.
+    labelFromCatalog: true,
+  },
+
   variant: {
     label: 'Variant',
     autoResolve: 'silent',

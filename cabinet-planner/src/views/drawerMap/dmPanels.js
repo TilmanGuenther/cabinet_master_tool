@@ -794,7 +794,11 @@ function renderPartAssigner(container, bin, drawer) {
 
   // Reset cascade state when a different bin is selected
   if (getPartSel()._binId !== bin.id) {
-    setPartSel({ _binId: bin.id })
+    // A preferred supplier answers the first question up front, so filling a
+    // drawer from one vendor does not mean picking it for every bin.
+    const preferred = getState().preferences?.supplier
+    setPartSel({ _binId: bin.id, ...(preferred ? { supplier: preferred } : {}) })
+
     // Pre-populate from the existing assignment, so re-opening a bin lands on
     // what it already holds rather than an empty cascade.
     const id = partIdentity(bin.part)
@@ -802,6 +806,7 @@ function renderPartAssigner(container, bin, drawer) {
       const ex = findBySku(id.supplier, id.sku)
       if (ex) {
         const sel = getPartSel()
+        sel.supplier = id.supplier
         sel.type     = typeForHeadType(ex.headType)
         sel.thread   = ex.thread
         sel.headType = ex.headType
@@ -827,7 +832,8 @@ function renderPartAssigner(container, bin, drawer) {
     .map(([value, def]) => ({ value, label: def.label }))
 
   container.appendChild(buildSelectRow('Type', typeOptions, s.type, val => {
-    setPartSel({ _binId: bin.id, type: val })
+    // Supplier is asked before Type, so it survives changing the type.
+    setPartSel({ _binId: bin.id, type: val, ...(s.supplier ? { supplier: s.supplier } : {}) })
     renderPartAssigner(container, bin, drawer)
   }))
 

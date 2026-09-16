@@ -66,6 +66,14 @@ The 5 mm safety margin and 42 mm Gridfinity base unit are fixed physical constan
 | `part` | object | Part stored in this bin |
 | `overrides` | object | *(optional)* Per-bin label overrides — see below |
 
+## Preferences
+
+Optional top-level `preferences` block holding UI choices rather than cabinet data.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `supplier` | string | *(optional)* Catalog id to answer the assigner's supplier question with by default. Omit for no preference. Only has an effect when more than one catalog is registered. |
+
 ## Part
 
 A self-contained snapshot of the catalog entry, taken when the part was

@@ -19,6 +19,19 @@
 import { getField, SORTS } from '../../data/partTypes/_fields.js'
 import { getPartType, resolvePartType } from '../../data/partTypes/index.js'
 import { dbFilter, uniq } from './dmHelpers.js'
+import { CATALOGS } from '../../data/catalogs/index.js'
+
+/**
+ * The questions to ask for a part type, including the supplier step.
+ *
+ * Supplier comes first and only when there is a choice to make: with a single
+ * catalog registered it is left out entirely, so nothing about the assigner
+ * changes until someone adds a second one.
+ */
+export function cascadeFor(type) {
+  const own = type?.cascade ?? []
+  return Object.keys(CATALOGS).length > 1 ? ['supplier', ...own] : own
+}
 
 /**
  * @param {object}   args
@@ -40,7 +53,7 @@ export function buildCascade({ typeId, selection = {} }) {
 
   const filterNow = () => ({ ...base, ...resolved })
 
-  for (const key of type.cascade ?? []) {
+  for (const key of cascadeFor(type)) {
     const field = getField(key)
     const options = optionsFor(key, field, type, filterNow())
 
@@ -84,7 +97,12 @@ function optionsFor(key, field, type, filter) {
   const cmp = SORTS[field.sort ?? 'none']
   if (cmp) values = [...values].sort(cmp)
 
-  return values.map(v => ({ value: v, label: field.format ? field.format(v) : String(v) }))
+  return values.map(v => ({ value: v, label: optionLabel(field, v) }))
+}
+
+function optionLabel(field, value) {
+  if (field.labelFromCatalog) return CATALOGS[value]?.brand ?? String(value)
+  return field.format ? field.format(value) : String(value)
 }
 
 // ── Selection bookkeeping ───────────────────────────────────────────
@@ -95,7 +113,7 @@ function optionsFor(key, field, type, filter) {
  */
 export function selectionAfter(current, typeId, key, value) {
   const type = getPartType(typeId)
-  const order = type?.cascade ?? []
+  const order = cascadeFor(type)
   const cut = order.indexOf(key)
 
   const next = { _binId: current._binId, type: typeId }
@@ -130,7 +148,7 @@ export function coerceFieldValue(key, value) {
  */
 export function nextAlongCascade(entry, extraFilter = {}) {
   const type = resolvePartType(entry)
-  const cascade = type?.cascade ?? []
+  const cascade = cascadeFor(type)
 
   const key = [...cascade].reverse().find(k => getField(k).numeric)
   if (!key || entry[key] == null) return null
