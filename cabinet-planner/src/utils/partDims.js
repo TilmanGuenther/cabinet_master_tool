@@ -1,5 +1,5 @@
 /**
- * fastenerDims.js
+ * partDims.js
  * Dimension/proportion helpers for fastener SVG generation.
  * Pure math — no DOM dependencies.
  */

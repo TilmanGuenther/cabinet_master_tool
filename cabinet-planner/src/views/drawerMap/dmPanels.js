@@ -1,7 +1,7 @@
 import { updateState, getState } from '../../state.js'
 import { findBySku } from '../../data/catalogs/index.js'
 import { partIdentity, partSku, skuLabel } from '../../utils/partIdentity.js'
-import { makeFastenerSVGEl } from '../../utils/fastenerSvg.js'
+import { makePartSVGEl } from '../../utils/partSvg.js'
 import { pushHistory, canUndo, canRedo, undo as undoHistory, redo as redoHistory } from '../../utils/binHistory.js'
 import {
   getSelDrawerId, setSelDrawerId, getSelBinIds, setSelBinIds,
@@ -587,7 +587,7 @@ export function buildProperties(panel, state) {
   // Fastener silhouette — shown when a part is assigned
   if (bin.part?.headType) {
     const iconWrap = mk('div', 'dm-part-icon-wrap')
-    iconWrap.appendChild(makeFastenerSVGEl(bin.part))
+    iconWrap.appendChild(makePartSVGEl(bin.part))
     panel.appendChild(iconWrap)
   }
 
@@ -926,7 +926,7 @@ function renderMatch(container, bin, drawer, matches, s) {
   const previewPart = dbEntryToPart(match)
   if (previewPart.headType) {
     const iconWrap = mk('div', 'dm-assigner-icon-wrap')
-    iconWrap.appendChild(makeFastenerSVGEl(previewPart))
+    iconWrap.appendChild(makePartSVGEl(previewPart))
     container.appendChild(iconWrap)
   }
 

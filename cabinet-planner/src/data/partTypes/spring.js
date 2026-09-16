@@ -7,8 +7,8 @@
 
 import {
   topAnnulus, sideSpring, R_X, R_Y, R_W, R_H,
-} from '../../utils/fastenerShapes.js'
-import { f } from '../../utils/fastenerDims.js'
+} from '../../utils/partShapes.js'
+import { f } from '../../utils/partDims.js'
 
 export default {
   id: 'spring',

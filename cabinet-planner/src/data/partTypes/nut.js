@@ -8,8 +8,8 @@
 import { nominalDiameter, hexArea } from './_shared.js'
 import {
   topHex, topSquareNut, sideNut, R_X, R_Y, R_W, R_H,
-} from '../../utils/fastenerShapes.js'
-import { d, f, isSquareNut, isNylocNut } from '../../utils/fastenerDims.js'
+} from '../../utils/partShapes.js'
+import { d, f, isSquareNut, isNylocNut } from '../../utils/partDims.js'
 
 export default {
   id: 'nut',

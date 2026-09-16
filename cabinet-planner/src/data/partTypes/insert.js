@@ -3,8 +3,8 @@
 import { nominalDiameter } from './_shared.js'
 import {
   topInsert, sideInsert, R_X, R_Y, R_W, R_H,
-} from '../../utils/fastenerShapes.js'
-import { d, f } from '../../utils/fastenerDims.js'
+} from '../../utils/partShapes.js'
+import { d, f } from '../../utils/partDims.js'
 
 export default {
   id: 'insert',

@@ -1,5 +1,5 @@
 /**
- * fastenerShapes.js
+ * partShapes.js
  * SVG shape primitives for part silhouettes.
  *
  * This is a toolkit, not a dispatcher: each function draws one shape. Which
@@ -7,9 +7,9 @@
  * src/data/partTypes/, which composes these into its `svg` descriptor.
  */
 
-import { d, f, screwDims, washerDims, isSquareNut, isMFStandoff, isNylocNut } from './fastenerDims.js'
+import { d, f, screwDims, washerDims, isSquareNut, isMFStandoff, isNylocNut } from './partDims.js'
 
-// ── SVG layout constants (mirrored from fastenerSvg.js) ───────────────────────
+// ── SVG layout constants (mirrored from partSvg.js) ───────────────────────
 
 const VH = 48
 // Left panel: 0–44  (top/drive view)

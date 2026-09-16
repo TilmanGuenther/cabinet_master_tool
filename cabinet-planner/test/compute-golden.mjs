@@ -16,11 +16,11 @@ import { buildPartDescription, dbEntryToPart } from '../src/views/drawerMap/dmHe
 import { formatDesc } from '../src/views/labelSheet/lsHelpers.js'
 import { getDensity } from '../src/data/densities.js'
 import {
-  getFastenerSVG,
-  getFastenerSVGLabel,
-  getFastenerSVGLabelTop,
-  getFastenerSVGLabelReduced,
-} from '../src/utils/fastenerSvg.js'
+  getPartSVG,
+  getPartSVGLabel,
+  getPartSVGLabelTop,
+  getPartSVGLabelReduced,
+} from '../src/utils/partSvg.js'
 
 export function computeGolden() {
   return FIXTURES.map(fixture => {
@@ -46,10 +46,10 @@ export function computeGolden() {
       }),
 
       // Silhouettes: assigner preview, label side, label top, shortened side
-      svg: getFastenerSVG(part),
-      svgLabel: getFastenerSVGLabel(part),
-      svgLabelTop: getFastenerSVGLabelTop(part),
-      svgLabelReduced: getFastenerSVGLabelReduced(part),
+      svg: getPartSVG(part),
+      svgLabel: getPartSVGLabel(part),
+      svgLabelTop: getPartSVGLabelTop(part),
+      svgLabelReduced: getPartSVGLabelReduced(part),
     }
   })
 }

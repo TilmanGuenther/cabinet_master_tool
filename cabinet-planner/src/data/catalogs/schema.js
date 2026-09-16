@@ -14,7 +14,7 @@
  *
  * PART_TYPE_SPECS below duplicates knowledge that is currently spread across
  * `views/drawerMap/dmConstants.js`, `data/densities.js` and
- * `utils/fastenerShapes.js`. Phase 1 introduces `src/data/partTypes/` as one
+ * `utils/partShapes.js`. Phase 1 introduces `src/data/partTypes/` as one
  * module per part type; at that point this table is DELETED and the checks
  * below read the part type modules instead. Do not add a second consumer of
  * this table in the meantime — it is a validation input, not app data.
@@ -46,7 +46,7 @@ export const HEAD_TYPES = [
   'o-ring', 'spring', 'spacer',
 ]
 
-/** Drive types understood by the top-view renderer (fastenerShapes.topScrew). */
+/** Drive types understood by the top-view renderer (partShapes.topScrew). */
 export const DRIVES = ['Hex', 'Torx', 'Phillips', 'Slotted']
 
 /** Sub-kinds within a part type. Mirrors the `variants` each type declares. */

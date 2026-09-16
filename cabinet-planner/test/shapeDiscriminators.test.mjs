@@ -12,7 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { isSquareNut, isMFStandoff, isNylocNut, washerDims } from '../src/utils/fastenerDims.js'
+import { isSquareNut, isMFStandoff, isNylocNut, washerDims } from '../src/utils/partDims.js'
 import { allParts } from '../src/data/catalogs/index.js'
 import { dbEntryToPart } from '../src/views/drawerMap/dmHelpers.js'
 

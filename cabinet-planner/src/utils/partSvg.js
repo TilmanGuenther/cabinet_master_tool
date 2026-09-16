@@ -1,5 +1,5 @@
 /**
- * fastenerSvg.js
+ * partSvg.js
  * Assembles B&W SVG silhouette icons from per-part-type drawings.
  *
  * This module owns the canvases and the break-mark overlay; what to draw on
@@ -11,11 +11,11 @@
  *   Right panel (50–96): side profile    — proportional to real DIN/ISO geometry
  *
  * Usage:
- *   getFastenerSVG(part)         → SVG string (for innerHTML)
- *   makeFastenerSVGEl(part)      → <div class="fastener-icon"> wrapping the SVG
+ *   getPartSVG(part)         → SVG string (for innerHTML)
+ *   makePartSVGEl(part)      → <div class="fastener-icon"> wrapping the SVG
  */
 
-import { d, f } from './fastenerDims.js'
+import { d, f } from './partDims.js'
 import {
   makeTopView, makeSideView, mmPerUnit, breakBehaviour, hasSilhouette, labelBody,
 } from '../data/partTypes/index.js'
@@ -36,7 +36,7 @@ const BREAK_W = 2.2   // mm — width of the break zone
 
 // ── Physical size helpers ─────────────────────────────────────────────────────
 
-// ── Break-mark helper (used by getFastenerSVGLabelReduced) ───────────────────
+// ── Break-mark helper (used by getPartSVGLabelReduced) ───────────────────
 
 /**
  * Draws an S-break mark centred on the rectangle (x, yTop)..(x+BREAK_W, yBot).
@@ -89,7 +89,7 @@ function breakMark(x, yTop, yBot) {
  * The side profile panel is rotated 90° to show the part horizontally
  * (head near the divider on the left, shaft extending right).
  */
-export function getFastenerSVG(part) {
+export function getPartSVG(part) {
   if (!hasSilhouette(part)) return ''
 
   const topView  = makeTopView(part)
@@ -121,7 +121,7 @@ export function getFastenerSVG(part) {
  * width/height attributes carry the true physical part size so CSS
  * max-height / max-width produce proportionally correct 1:1 scale icons.
  */
-export function getFastenerSVGLabel(part) {
+export function getPartSVGLabel(part) {
   if (!hasSilhouette(part)) return ''
 
   const { W, H, content } = labelBody(part)
@@ -139,7 +139,7 @@ export function getFastenerSVGLabel(part) {
  * Shows the fastener from above: drive recess for screws, hex for nuts/standoffs,
  * ring for washers.
  */
-export function getFastenerSVGLabelTop(part) {
+export function getPartSVGLabelTop(part) {
   if (!hasSilhouette(part)) return ''
   const S  = 8
   const cx = S / 2, cy = S / 2, r = S / 2 * 0.88
@@ -153,7 +153,7 @@ export function getFastenerSVGLabelTop(part) {
 }
 
 /**
- * Like getFastenerSVGLabel but renders the part at a shortened length and overlays
+ * Like getPartSVGLabel but renders the part at a shortened length and overlays
  * a break mark to indicate the true length is greater.
  *
  * Strategy: render the fastener at `targetLen` using the existing function (so every
@@ -165,10 +165,10 @@ export function getFastenerSVGLabelTop(part) {
  * Nuts and washers fall back unchanged (their width is the across-flats dimension,
  * not a length that benefits from shortening).
  */
-export function getFastenerSVGLabelReduced(part) {
+export function getPartSVGLabelReduced(part) {
   if (!hasSilhouette(part)) return ''
   const brk = breakBehaviour(part)
-  if (!brk.reducible) return getFastenerSVGLabel(part)
+  if (!brk.reducible) return getPartSVGLabel(part)
 
   const nomD = d(part.thread)
   const len  = part.length || 10
@@ -177,10 +177,10 @@ export function getFastenerSVGLabelReduced(part) {
   const targetLen = Math.max(nomD * 3.5, 10)
 
   // Fall back when the part isn't meaningfully longer than the visual representation
-  if (len <= targetLen * 1.25) return getFastenerSVGLabel(part)
+  if (len <= targetLen * 1.25) return getPartSVGLabel(part)
 
   // Render at the shortened length; all head/body geometry is handled automatically
-  const shortSvg = getFastenerSVGLabel({ ...part, length: targetLen })
+  const shortSvg = getPartSVGLabel({ ...part, length: targetLen })
   if (!shortSvg) return ''
 
   // Extract canvas size from viewBox
@@ -221,9 +221,9 @@ export function getFastenerSVGLabelReduced(part) {
  * Returns a <div class="fastener-icon"> DOM element containing the SVG.
  * Ready to append to the document.
  */
-export function makeFastenerSVGEl(part) {
+export function makePartSVGEl(part) {
   const div = document.createElement('div')
   div.className = 'fastener-icon'
-  div.innerHTML = getFastenerSVG(part)
+  div.innerHTML = getPartSVG(part)
   return div
 }

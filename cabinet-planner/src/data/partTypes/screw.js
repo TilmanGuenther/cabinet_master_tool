@@ -9,8 +9,8 @@
 import { nominalDiameter, cylinderVol, genericVolMM3 } from './_shared.js'
 import {
   topScrew, sideScrew, R_X, R_Y, R_W, R_H,
-} from '../../utils/fastenerShapes.js'
-import { d, f, screwDims } from '../../utils/fastenerDims.js'
+} from '../../utils/partShapes.js'
+import { d, f, screwDims } from '../../utils/partDims.js'
 
 /** Compact head names for label text (the long names live in `headLabels`). */
 const SHORT_HEAD = {
@@ -51,7 +51,7 @@ export default {
   /**
    * Head volume plus shank volume, times a random-packing penalty.
    * Head proportions follow the same DIN/ISO approximations as screwDims()
-   * in utils/fastenerDims.js.
+   * in utils/partDims.js.
    */
   volumeMM3(part) {
     const diam = nominalDiameter(part.thread)

@@ -18,7 +18,7 @@ import JsBarcode from 'jsbarcode'
 import { barcodeValue } from '../utils/partIdentity.js'
 import { hasSilhouette, silhouetteLayout } from '../data/partTypes/index.js'
 import { triggerPrint } from '../utils/print.js'
-import { getFastenerSVGLabel, getFastenerSVGLabelTop, getFastenerSVGLabelReduced } from '../utils/fastenerSvg.js'
+import { getPartSVGLabel, getPartSVGLabelTop, getPartSVGLabelReduced } from '../utils/partSvg.js'
 import { getState } from '../state.js'
 import { LABEL_H_MM, labelWidthMM, binKey, formatDesc } from './labelSheet/lsHelpers.js'
 import { buildSidebar } from './labelSheet/lsSidebar.js'
@@ -313,15 +313,15 @@ export function renderLabelSheet(container, state) {
             const sideDiv = document.createElement('div')
             sideDiv.className = 'label-icon-side'
             sideDiv.innerHTML = reduceImageLength
-              ? getFastenerSVGLabelReduced(part)
-              : getFastenerSVGLabel(part)
+              ? getPartSVGLabelReduced(part)
+              : getPartSVGLabel(part)
             iconsDiv.appendChild(sideDiv)
           }
 
           if (showTop) {
             const topDiv = document.createElement('div')
             topDiv.className = 'label-icon-top'
-            topDiv.innerHTML = getFastenerSVGLabelTop(part)
+            topDiv.innerHTML = getPartSVGLabelTop(part)
             iconsDiv.appendChild(topDiv)
           }
 

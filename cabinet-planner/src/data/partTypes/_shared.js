@@ -7,10 +7,10 @@
 
 /**
  * Nominal diameter in mm, parsed from a thread string.
- * Re-exported from utils/fastenerDims.js so part type modules have one obvious
+ * Re-exported from utils/partDims.js so part type modules have one obvious
  * import for the primitives they need.
  */
-export { d as nominalDiameter } from '../../utils/fastenerDims.js'
+export { d as nominalDiameter } from '../../utils/partDims.js'
 
 /** Cross-sectional area of a hexagon given its across-flats dimension. */
 export function hexArea(acrossFlats) {

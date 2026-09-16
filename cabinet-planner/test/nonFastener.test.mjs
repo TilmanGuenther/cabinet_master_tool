@@ -21,8 +21,8 @@ import { dbEntryToPart } from '../src/views/drawerMap/dmHelpers.js'
 import { validateCatalog } from '../src/data/catalogs/schema.js'
 import { hasSilhouette } from '../src/data/partTypes/index.js'
 import {
-  getFastenerSVG, getFastenerSVGLabel, getFastenerSVGLabelTop, getFastenerSVGLabelReduced,
-} from '../src/utils/fastenerSvg.js'
+  getPartSVG, getPartSVGLabel, getPartSVGLabelTop, getPartSVGLabelReduced,
+} from '../src/utils/partSvg.js'
 
 /** A small o-ring catalog in the normalized schema, as a contributor would write it. */
 const ORINGS = [
@@ -168,11 +168,11 @@ test('the new types draw, at their true physical size', async t => {
     await t.test(name, () => {
       assert.ok(hasSilhouette(part), 'must have a silhouette')
 
-      const icon = getFastenerSVG(part)
-      const label = getFastenerSVGLabel(part)
+      const icon = getPartSVG(part)
+      const label = getPartSVGLabel(part)
       for (const [what, svg] of [['icon', icon], ['label', label],
-                                 ['top', getFastenerSVGLabelTop(part)],
-                                 ['reduced', getFastenerSVGLabelReduced(part)]]) {
+                                 ['top', getPartSVGLabelTop(part)],
+                                 ['reduced', getPartSVGLabelReduced(part)]]) {
         assert.ok(svg.length > 60, `${what} rendered empty`)
         assert.ok(!svg.includes('NaN'), `${what} contains NaN`)
       }
@@ -187,8 +187,8 @@ test('the new types draw, at their true physical size', async t => {
 
 test('a hex spacer is drawn hexagonal, a round one round', () => {
   const base = { partType: 'spacer', headType: 'spacer', outerD: 6, innerD: 3.2, length: 10 }
-  const hex   = getFastenerSVG({ ...base, variant: 'spacer-hex' })
-  const round = getFastenerSVG({ ...base, variant: 'spacer-round' })
+  const hex   = getPartSVG({ ...base, variant: 'spacer-hex' })
+  const round = getPartSVG({ ...base, variant: 'spacer-round' })
   assert.ok(hex.includes('<path'), 'the hex top view is a polygon path')
   assert.ok(!round.includes('<path'), 'the round top view is circles only')
 })

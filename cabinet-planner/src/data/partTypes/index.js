@@ -44,7 +44,7 @@
  *                            breakCentred    break in the middle (symmetric parts)
  *                            breakFullHeight break spans the whole canvas height
  *                          Compose the drawings from the primitives in
- *                          utils/fastenerShapes.js, or add new ones there.
+ *                          utils/partShapes.js, or add new ones there.
  *
  *  2. Register it in PART_TYPES below.
  *  3. Add its vocabulary to src/data/catalogs/schema.js so catalogs carrying it
@@ -71,8 +71,8 @@ import spacer    from './spacer.js'
 
 import {
   topScrew, sideScrew, L_CX, L_CY, L_R, R_X, R_Y, R_W, R_H,
-} from '../../utils/fastenerShapes.js'
-import { d, f, screwDims } from '../../utils/fastenerDims.js'
+} from '../../utils/partShapes.js'
+import { d, f, screwDims } from '../../utils/partDims.js'
 
 export const PART_TYPES = {
   screw,
@@ -160,7 +160,7 @@ export function shortLabel(part) {
 }
 
 // ── Silhouette dispatch ───────────────────────────────────────────────────────
-// Each part type composes shape primitives from utils/fastenerShapes.js into an
+// Each part type composes shape primitives from utils/partShapes.js into an
 // `svg` descriptor. A type with `svg: null` simply has no drawing, and callers
 // degrade to text.
 

@@ -3,8 +3,8 @@
 import { nominalDiameter, hexArea } from './_shared.js'
 import {
   topHex, sideStandoff, R_X, R_Y, R_W, R_H,
-} from '../../utils/fastenerShapes.js'
-import { d, f, isMFStandoff } from '../../utils/fastenerDims.js'
+} from '../../utils/partShapes.js'
+import { d, f, isMFStandoff } from '../../utils/partDims.js'
 
 export default {
   id: 'standoff',
