@@ -55,13 +55,6 @@ export const SHAPE_FLAGS = {
   standoffEnds: ['mf', 'ff'],
 }
 
-/**
- * Threads the silhouette renderer has a real diameter for.
- * Mirrors THREAD_D in utils/fastenerDims.js — anything outside this renders at
- * the 3 mm fallback, which is a warning, not an error.
- */
-export const RENDERABLE_THREADS = ['M2', 'M2.5', 'M3', 'M4', 'M5', 'M6', 'M8', 'M10']
-
 /** Threads with an empirical density-table row (densities.js TABLE). */
 export const TABULATED_THREADS = ['M2', 'M2.5', 'M3', 'M4', 'M5', 'M6', 'M8', 'M10']
 
@@ -196,10 +189,6 @@ export function validateCatalog(catalog) {
         }
         if (spec?.threadForm === 'diameter' && !isDiam) {
           err(sku, 'thread', `partType "${entry.partType}" expects a nominal diameter (e.g. "Ø3"), got "${entry.thread}"`)
-        }
-        if (isMetric && !RENDERABLE_THREADS.includes(entry.thread)) {
-          warn(sku, 'thread',
-            `Thread "${entry.thread}" is not in THREAD_D (utils/fastenerDims.js) — the silhouette will be drawn at the 3 mm fallback diameter`)
         }
         if (isDiam) {
           warn(sku, 'thread',

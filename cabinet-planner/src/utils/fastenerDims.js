@@ -6,9 +6,20 @@
 
 // ── Thread → nominal diameter (mm) ───────────────────────────────────────────
 
-export const THREAD_D = { M2: 2, 'M2.5': 2.5, M3: 3, M4: 4, M5: 5, M6: 6, M8: 8, M10: 10 }
-
-export function d(thread) { return THREAD_D[thread] ?? 3 }
+/**
+ * Nominal diameter in mm for a thread designation.
+ *
+ * Handles "M3" (threaded) and "Ø3" (smooth-shank pins and dowels); the 3 mm
+ * default applies only to something that parses as neither.
+ *
+ * This used to be a lookup table covering M2-M10, which silently returned 3 mm
+ * for every other size -- about a fifth of the catalog, so an M16 screw and an
+ * M36 washer were drawn the same size as an M3 (finding F-1 in
+ * doc/CATALOG_PLUGIN_PLAN.md).
+ */
+export function d(thread) {
+  return parseFloat(String(thread).replace(/^[MØ]/i, '')) || 3
+}
 
 // ── Real-world mm proportions (approximate DIN/ISO) ──────────────────────────
 

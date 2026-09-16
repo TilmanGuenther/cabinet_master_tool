@@ -7,16 +7,10 @@
 
 /**
  * Nominal diameter in mm, parsed from a thread string.
- * Handles both "M3" (threaded) and "Ø3" (smooth-shank pins and dowels).
- *
- * Note this is NOT the same as `d()` in utils/fastenerDims.js, which looks the
- * thread up in a table that only covers M2-M10 and silently returns 3 mm for
- * anything else (finding F-1 in doc/CATALOG_PLUGIN_PLAN.md). The two converge
- * when F-1 is fixed.
+ * Re-exported from utils/fastenerDims.js so part type modules have one obvious
+ * import for the primitives they need.
  */
-export function nominalDiameter(thread) {
-  return parseFloat(String(thread).replace(/^[MØ]/i, '')) || 3
-}
+export { d as nominalDiameter } from '../../utils/fastenerDims.js'
 
 /** Cross-sectional area of a hexagon given its across-flats dimension. */
 export function hexArea(acrossFlats) {
