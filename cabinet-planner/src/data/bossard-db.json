@@ -14115,21 +14115,6 @@
     "materialGrade": ""
   },
   {
-    "articleNumber": "1284592",
-    "bossardNorm": "BN 809",
-    "title": "Sicherungsscheiben für Wellen",
-    "norms": [
-      "DIN 6799",
-      "~UNI 7434",
-      "~ČSN 022929"
-    ],
-    "thread": "Ø0.8",
-    "headType": "washer",
-    "drive": "",
-    "material": "Federstahl",
-    "materialGrade": ""
-  },
-  {
     "articleNumber": "300104370",
     "bossardNorm": "BN 20706",
     "title": "Einpressmuttern für Printplatten und andere Kunststoffe",

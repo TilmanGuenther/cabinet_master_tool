@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate": "node tools/validate-catalogs.mjs",
+    "check:size": "node tools/check-bundle-size.mjs",
+    "test": "npm run validate"
   },
   "devDependencies": {
     "vite": "^5",

@@ -299,7 +299,7 @@ export function resolvePartType(part) {
 
 Each phase is independently mergeable and leaves the app working.
 
-### Phase 0 — Guardrails first (no behaviour change)
+### Phase 0 — Guardrails first (no behaviour change) — **DONE**
 
 | # | Task | Files |
 |---|---|---|
@@ -312,6 +312,53 @@ Each phase is independently mergeable and leaves the app working.
 This is what makes contribution safe: a red X with a precise message instead of a
 silently-wrong silhouette or a mispriced order line.
 
+**Shipped as**: `src/data/catalogs/schema.js`, `tools/validate-catalogs.mjs`,
+`tools/lib/normalizeLegacy.mjs`, `tools/check-bundle-size.mjs`,
+`doc/CATALOG_SCHEMA.md`, `.github/workflows/ci.yml`, plus `validate` / `check:size` /
+`test` scripts.
+
+The catalog registry does not exist until Phase 3, so the validator **discovers**
+catalogs: it prefers `src/data/catalogs/<id>/parts.json` and falls back to the legacy
+`src/data/bossard-db.json` read through `normalizeLegacy.mjs`. That adapter makes today's
+implicit inference explicit (`articleNumber`→`sku`, `bossardNorm`→`catalogRef`, BN norm
+→ `variant`, German title text → `shape`) and is reused verbatim as the Phase 3.1
+migration. Errors fail CI; warnings are reported and grouped. Current state of the
+Bossard catalog: **0 errors, 300 warnings** across 923 entries.
+
+#### Findings from Phase 0
+
+Running the validator against the shipped data turned up two real defects.
+
+**F-1 — ~180 entries render at the wrong physical size (open).**
+`THREAD_D` in `utils/fastenerDims.js` covers only M2–M10, and `d()` falls back to
+**3 mm** for anything else. The catalog contains M1, M1.4, M1.6, M1.7, M2.3, M2.6, M3.5,
+M4.5, M7, M12–M36 and every `Ø` pin diameter — about a fifth of all entries. Verified
+directly:
+
+```
+M3    nominal d = 3   headW = 4.5
+M6    nominal d = 6   headW = 9
+M16   nominal d = 3   headW = 4.5      ← identical to M3
+M36   nominal d = 3   headW = 4.5      ← identical to M3
+Ø10   nominal d = 3   headW = 4.5      ← identical to M3
+```
+
+So an M16 screw and an M36 washer are drawn the same size as an M3, on labels and on the
+bin poster. The fix is small — parse the numeric part of the thread string instead of
+looking it up in a table, exactly as `densities.js nominalDiameter()` already does — but
+it **changes rendered output for existing users**, which is precisely what the Phase 1.5
+golden test exists to catch. Scheduled as **1.6**, after that test lands. The validator
+warns on every affected entry in the meantime.
+
+**F-2 — one misclassified part (fixed).**
+SKU `1284592` (`BN 809`, DIN 6799 `Sicherungsscheiben für Wellen`) is a retaining
+ring/E-clip, not a washer. `parse_bossard.py` classified it as one because its title
+contains `scheib`, which also gave it a `Ø0.8` *shaft* diameter in the thread field and
+no valid washer variant — so it was both undrawable and unreachable in the assigner.
+Removed from the catalog, and the parser now recognises retaining rings and skips
+unclassifiable files loudly instead of mislabelling them. Retaining rings are a good
+candidate part type for Phase 6.
+
 ### Phase 1 — Part type registry (pure refactor, no behaviour change)
 
 | # | Task | Files |
@@ -321,6 +368,7 @@ silently-wrong silhouette or a mispriced order line.
 | 1.3 | `getDensity(part)` replaces `getDensity(thread, headType, length)`; dispatches to `type.volumeMM3()`, generic-cylinder fallback retained | `densities.js`, `OrderList.js:72` |
 | 1.4 | Silhouette dispatch routes through `type.svg`; `LabelSheet.js:302` gates on `type.svg != null` instead of `part.headType`, and reads `layout` instead of hard-coding `ht === 'nut' \|\| ht === 'washer'` | `fastenerShapes.js`, `fastenerSvg.js`, `LabelSheet.js` |
 | 1.5 | Golden test: assert description, density and SVG output are byte-identical to pre-refactor for a fixture of ~30 representative Bossard parts | new `test/` |
+| 1.6 | **Fix F-1**: `d(thread)` parses the numeric part instead of a `THREAD_D` lookup, so M12+ and `Ø` sizes stop rendering at 3 mm. Do this *after* 1.5 so the golden test records the deliberate change. Drop the corresponding validator warning | `fastenerDims.js`, `schema.js` |
 
 1.5 is what makes this refactor safe to merge — it is the only thing standing between a
 registry refactor and silently changing every existing user's order quantities.

@@ -129,7 +129,13 @@ def parse_pdf(path: Path) -> list[dict]:
     # Infer headType from title for parts without Kopfform (nuts, washers, etc.)
     if not meta["headType"]:
         title_lower = meta["title"].lower()
-        if "mutter" in title_lower:
+        # Retaining rings / circlips (DIN 6799, DIN 471/472) match "scheib" but
+        # are not washers: no thread, different geometry, and the d1 column is a
+        # shaft diameter. There is no part type for them yet, so leave headType
+        # empty and let the guard below skip the file rather than mislabel them.
+        if "sicherungsscheibe" in title_lower or "sicherungsring" in title_lower:
+            meta["headType"] = ""
+        elif "mutter" in title_lower:
             meta["headType"] = "nut"
         elif "scheib" in title_lower or "unterleg" in title_lower:
             meta["headType"] = "washer"
@@ -143,6 +149,12 @@ def parse_pdf(path: Path) -> list[dict]:
             meta["headType"] = "press-nut"
         elif "stift" in title_lower:
             meta["headType"] = "pin"
+
+    # A file we cannot classify would emit entries with an empty headType, which
+    # have no silhouette renderer and no density model. Skip it loudly instead.
+    if not meta["headType"]:
+        print(f"skipped (unrecognised part type: {meta['title'][:50]!r})", end=" ", flush=True)
+        return []
 
     # --- Parse table: columns are each on their own line ---
     # After "Artikelnummer", column header names follow until the first article number.
