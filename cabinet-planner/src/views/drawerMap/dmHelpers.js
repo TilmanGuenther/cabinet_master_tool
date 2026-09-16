@@ -1,6 +1,7 @@
 import { allParts, DEFAULT_CATALOG } from '../../data/catalogs/index.js'
 import { INSET } from './dmConstants.js'
 import { typeForHeadType, describePart, resolvePartType } from '../../data/partTypes/index.js'
+import { FIELDS } from '../../data/partTypes/_fields.js'
 
 // ── Part assigner helpers ─────────────────────────────────────────────────────
 
@@ -77,6 +78,17 @@ export function dbEntryToPart(entry) {
   }
   if (entry.variant) part.variant = entry.variant
   if (entry.shape)   part.shape   = { ...entry.shape }
+
+  // Copy every dimension the field vocabulary knows about. This used to be the
+  // fixed list above, which silently dropped anything a non-fastener type
+  // declared: an o-ring lost its inner diameter and cord size on assignment, so
+  // its label printed without a size and its order quantity came out ~48x too
+  // high. Driving it off FIELDS means a new dimension survives automatically.
+  for (const key of Object.keys(FIELDS)) {
+    if (key in part) continue
+    if (entry[key] != null && entry[key] !== '') part[key] = entry[key]
+  }
+
   return part
 }
 
