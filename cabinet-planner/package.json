@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "validate": "node tools/validate-catalogs.mjs",
     "check:size": "node tools/check-bundle-size.mjs",
-    "test": "npm run validate"
+    "test:golden": "node --import ./test/register-hooks.mjs --test test/*.test.mjs",
+    "test:golden:update": "node --import ./test/register-hooks.mjs test/update-golden.mjs",
+    "test": "npm run validate && npm run test:golden"
   },
   "devDependencies": {
     "vite": "^5",

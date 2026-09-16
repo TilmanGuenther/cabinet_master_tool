@@ -36,6 +36,12 @@ jobs:
         working-directory: cabinet-planner
         run: npm run validate
 
+      # Golden output test: description text, order-list densities and every
+      # silhouette must stay byte-identical across refactors. See test/.
+      - name: Golden output test
+        working-directory: cabinet-planner
+        run: npm run test:golden
+
       - name: Build
         working-directory: cabinet-planner
         run: npm run build
